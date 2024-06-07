@@ -47,11 +47,13 @@ export declare abstract class Stmt {
     getReturnType(): PrimitiveType;
     operands: Stmt[];
     abstract getKind(): StmtKind;
+    getVal(): number;
 }
 export declare class ConstStmt extends Stmt {
     val: number;
     constructor(val: number, returntype: PrimitiveType, id: number, nameHint?: string);
     getKind(): StmtKind;
+    getVal(): number;
 }
 export declare class RangeForStmt extends Stmt {
     strictlySerialize: boolean;
@@ -333,7 +335,9 @@ export declare enum TextureFunctionKind {
     SampleLod = 1,
     SampleCompare = 2,
     Load = 3,
-    Store = 4
+    LoadLod = 4,
+    Store = 5,
+    StoreLod = 6
 }
 export declare function getTextureFunctionResultType(func: TextureFunctionKind): PrimitiveType.f32 | undefined;
 export declare class TextureFunctionStmt extends Stmt {

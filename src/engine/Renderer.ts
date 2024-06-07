@@ -1,5 +1,5 @@
 import { Field } from '../data/Field';
-import { CanvasTexture, DepthTexture, Texture, TextureBase } from '../data/Texture';
+import { CanvasTexture, DepthTexture, Texture, Sampler, TextureBase } from '../data/Texture';
 import * as ti from '../taichi';
 import { assert } from '../utils/Logging';
 import { BatchInfo } from './common/BatchInfo';
@@ -825,13 +825,13 @@ export class Renderer {
     async initIBL() {
         if (this.scene.ibl) {
             this.iblLambertianFiltered = ti.texture(4, this.scene.ibl.texture.dimensions);
-            this.iblGGXFiltered = ti.texture(4, this.scene.ibl.texture.dimensions.concat([16]), 1, {
+            this.iblGGXFiltered = ti.texture(4, this.scene.ibl.texture.dimensions.concat([16]), 1, new Sampler({
                 wrapModeW: ti.WrapMode.ClampToEdge,
-            });
-            this.LUT = ti.texture(4, [512, 512], 1, {
+            }));
+            this.LUT = ti.texture(4, [512, 512], 1, new Sampler({
                 wrapModeU: ti.WrapMode.ClampToEdge,
                 wrapModeV: ti.WrapMode.ClampToEdge,
-            });
+            }));
             this.skyboxVBO = ti.field(ti.types.vector(ti.f32, 3), 8);
             this.skyboxIBO = ti.field(ti.i32, 36);
 

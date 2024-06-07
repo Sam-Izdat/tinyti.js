@@ -258,7 +258,14 @@ export function textureLoad(texture: TextureBase, coords: any): ti.types.vector 
     throwNotImplementedError();
     return [0.0, 0.0, 0.0, 0.0];
 }
+export function textureLoadLod(texture: TextureBase, coords: any, lod: number): ti.types.vector {
+    throwNotImplementedError();
+    return [0.0, 0.0, 0.0, 0.0];
+}
 export function textureStore(texture: TextureBase, coords: any, val: any) {
+    throwNotImplementedError();
+}
+export function textureStoreLod(texture: TextureBase, coords: any, val: any, lod: number) {
     throwNotImplementedError();
 }
 

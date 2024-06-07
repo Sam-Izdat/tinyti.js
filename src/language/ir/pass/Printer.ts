@@ -361,8 +361,12 @@ class IRPrinter extends IRVisitor {
             switch (stmt.func) {
                 case TextureFunctionKind.Load:
                     return 'load';
+                case TextureFunctionKind.LoadLod:
+                    return 'load-lod';
                 case TextureFunctionKind.Store:
                     return 'store';
+                case TextureFunctionKind.StoreLod:
+                    return 'store-lod';
                 case TextureFunctionKind.Sample:
                     return 'sample';
                 case TextureFunctionKind.SampleLod:

@@ -1,11 +1,14 @@
 import { Program } from '../program/Program';
 import { assert, error } from '../utils/Logging';
+import { WebGPUSinglePassDownsampler, SPDFilters } from '../vendor/wgpuspd';
 
 export enum TextureDimensionality {
     Dim2d,
     Dim3d,
     DimCube,
 }
+
+const downsampler = new WebGPUSinglePassDownsampler(null);
 
 export function getTextureCoordsNumComponents(dim: TextureDimensionality): number {
     switch (dim) {
@@ -30,8 +33,11 @@ export abstract class TextureBase {
     abstract canUseAsRengerTarget(): boolean;
     abstract getGPUTexture(): GPUTexture;
     abstract getGPUTextureView(): GPUTextureView;
+    abstract getGPUTextureViewLod(lod:number): GPUTextureView;
+    abstract generateMipmaps(): boolean;
     abstract getGPUSampler(): GPUSampler; // TODO rethink this... samplers and texture probably should be decoupled?
     abstract getTextureDimensionality(): TextureDimensionality;
+    abstract getMipLevelCount(): number;
     textureId: number = -1;
     sampleCount: number = 1;
 }
@@ -42,10 +48,25 @@ export enum WrapMode {
     MirrorRepeat = 'mirror-repeat',
 }
 
+export enum FilterMode {
+    Linear = 'linear',
+    Nearest = 'nearest',
+}
+
 export interface TextureSamplingOptions {
     wrapModeU?: WrapMode;
     wrapModeV?: WrapMode;
     wrapModeW?: WrapMode;
+    magFilter?: FilterMode;
+    minFilter?: FilterMode;
+    mipmapFilter?: FilterMode;
+}
+
+export class Sampler {
+    constructor(public samplingOptions: TextureSamplingOptions) {
+        this.gpuSampler = Program.getCurrentProgram().runtime!.createGPUSampler(false, samplingOptions);
+    }
+    public gpuSampler: GPUSampler;
 }
 
 export class Texture extends TextureBase {
@@ -53,22 +74,26 @@ export class Texture extends TextureBase {
         public numComponents: number,
         public dimensions: number[],
         sampleCount: number,
-        public samplingOptions: TextureSamplingOptions
+        sampler: Sampler,
+        mipLevelCount: number = 1
     ) {
         super();
         this.sampleCount = sampleCount;
+        this.mipLevelCount = mipLevelCount;
         assert(dimensions.length <= 3 && dimensions.length >= 1, 'texture dimensions must be >= 1 and <= 3');
         assert(
             numComponents === 1 || numComponents === 2 || numComponents === 4,
             'texture dimensions must be 1, 2, or 4'
         );
+
         this.texture = Program.getCurrentProgram().runtime!.createGPUTexture(
             dimensions,
             this.getTextureDimensionality(),
             this.getGPUTextureFormat(),
             this.canUseAsRengerTarget(),
             true,
-            1
+            1,
+            mipLevelCount
         );
         if (this.sampleCount > 1) {
             this.multiSampledRenderTexture = Program.getCurrentProgram().runtime!.createGPUTexture(
@@ -77,18 +102,32 @@ export class Texture extends TextureBase {
                 this.getGPUTextureFormat(),
                 this.canUseAsRengerTarget(),
                 false,
-                sampleCount
+                sampleCount,
+                mipLevelCount
             );
         }
+        
         Program.getCurrentProgram().addTexture(this);
         this.textureView = this.texture.createView();
-        this.sampler = Program.getCurrentProgram().runtime!.createGPUSampler(false, samplingOptions);
+        this.mipLevelViews = []
+        if (this.mipLevelCount > 1) {
+            for (let i = 0; i < this.mipLevelCount; i++) {
+                this.mipLevelViews.push(this.texture.createView({
+                    baseMipLevel: i,
+                    mipLevelCount: 1,
+                }));
+            }
+        }
+        // this.sampler = Program.getCurrentProgram().runtime!.createGPUSampler(false, samplingOptions);
+        this.sampler = sampler.gpuSampler;
     }
 
     private texture: GPUTexture;
     private textureView: GPUTextureView;
+    private mipLevelViews: GPUTextureView[];
     private sampler: GPUSampler;
     multiSampledRenderTexture: GPUTexture | null = null;
+    private mipLevelCount: number;
 
     getGPUTextureFormat(): GPUTextureFormat {
         switch (this.numComponents) {
@@ -117,6 +156,15 @@ export class Texture extends TextureBase {
         return this.textureView;
     }
 
+    getGPUTextureViewLod(lod:number = 0): GPUTextureView {
+        return this.mipLevelViews[lod];
+    }
+
+    generateMipmaps() {
+        downsampler.generateMipmaps(Program.getCurrentProgram().runtime!.device!, this.texture, {filter: SPDFilters.Average});
+        return true;
+    }
+
     getGPUSampler(): GPUSampler {
         return this.sampler;
     }
@@ -133,6 +181,10 @@ export class Texture extends TextureBase {
         }
     }
 
+    getMipLevelCount(): number {
+        return this.mipLevelCount;
+    }
+
     async copyFrom(src: Texture) {
         assert(this.getTextureDimensionality() === src.getTextureDimensionality(), 'texture dimensionality mismatch');
         for (let i = 0; i < this.dimensions.length; ++i) {
@@ -145,23 +197,23 @@ export class Texture extends TextureBase {
         );
     }
 
-    static async createFromBitmap(bitmap: ImageBitmap) {
+    static async createFromBitmap(bitmap: ImageBitmap, sampleCount: number = 1, sampler: Sampler = new Sampler({}), mipLevelCount: number = 1) {
         let dimensions = [bitmap.width, bitmap.height];
-        let texture = new Texture(4, dimensions, 1, {});
+        let texture = new Texture(4, dimensions, sampleCount, sampler, mipLevelCount);
         await Program.getCurrentProgram().runtime!.copyImageBitmapToTexture(bitmap, texture.getGPUTexture());
         return texture;
     }
 
-    static async createFromHtmlImage(image: HTMLImageElement) {
+    static async createFromHtmlImage(image: HTMLImageElement, sampleCount: number = 1, sampler: Sampler = new Sampler({}), mipLevelCount: number = 1) {
         let bitmap = await createImageBitmap(image);
-        return await this.createFromBitmap(bitmap);
+        return await this.createFromBitmap(bitmap, sampleCount, sampler, mipLevelCount);
     }
 
-    static async createFromURL(url: string): Promise<Texture> {
+    static async createFromURL(url: string, sampleCount: number = 1, sampler: Sampler = new Sampler({}), mipLevelCount: number = 1): Promise<Texture> {
         let img = new Image();
         img.src = url;
         await img.decode();
-        return await this.createFromHtmlImage(img);
+        return await this.createFromHtmlImage(img, sampleCount, sampler, mipLevelCount);
     }
 }
 
@@ -208,12 +260,24 @@ export class CanvasTexture extends TextureBase {
         return this.context.getCurrentTexture().createView();
     }
 
+    getGPUTextureViewLod(lod:number = 0): GPUTextureView {
+        return this.context.getCurrentTexture().createView();
+    }
+
+    generateMipmaps() {
+        return false;
+    }
+
     getGPUSampler(): GPUSampler {
         return this.sampler;
     }
 
     getTextureDimensionality(): TextureDimensionality {
         return TextureDimensionality.Dim2d;
+    }
+
+    getMipLevelCount(): number {
+        return 1;
     }
 }
 
@@ -253,8 +317,19 @@ export class DepthTexture extends TextureBase {
     getTextureDimensionality(): TextureDimensionality {
         return TextureDimensionality.Dim2d;
     }
+    getMipLevelCount(): number {
+        return 1;
+    }
     getGPUTextureView(): GPUTextureView {
         return this.textureView;
+    }
+    getGPUTextureViewLod(lod:number = 0): GPUTextureView {
+        return this.textureView;
+    }
+    generateMipmaps() {
+        // If mip support is added, min/max filter can be used like this:
+        // downsampler.generateMipmaps(Program.getCurrentProgram().runtime!.device!, this.texture, {filter: SPDFilters.Max});
+        return false;
     }
     getGPUSampler(): GPUSampler {
         return this.sampler;
@@ -297,8 +372,17 @@ export class CubeTexture extends TextureBase {
     getTextureDimensionality(): TextureDimensionality {
         return TextureDimensionality.DimCube;
     }
+    getMipLevelCount(): number {
+        return 1;
+    }
     getGPUTextureView(): GPUTextureView {
         return this.textureView;
+    }
+    getGPUTextureViewLod(lod:number = 0): GPUTextureView {
+        return this.textureView;
+    }
+    generateMipmaps() {
+        return false;
     }
     getGPUSampler(): GPUSampler {
         return this.sampler;
@@ -336,5 +420,5 @@ export class CubeTexture extends TextureBase {
 }
 
 export function isTexture(x: any) {
-    return x instanceof Texture || x instanceof CanvasTexture || x instanceof DepthTexture || x instanceof CubeTexture;
+    return x instanceof Sampler || x instanceof Texture || x instanceof CanvasTexture || x instanceof DepthTexture || x instanceof CubeTexture;
 }

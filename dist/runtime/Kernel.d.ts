@@ -18,7 +18,8 @@ declare enum ResourceType {
 declare class ResourceInfo {
     resourceType: ResourceType;
     resourceID?: number | undefined;
-    constructor(resourceType: ResourceType, resourceID?: number | undefined);
+    levelID: number;
+    constructor(resourceType: ResourceType, resourceID?: number | undefined, levelID?: number);
     equals(that: ResourceInfo): boolean;
 }
 declare class ResourceBinding {

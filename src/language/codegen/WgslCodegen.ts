@@ -466,7 +466,7 @@ export class CodegenVisitor extends IRVisitor {
     override visitTextureFunctionStmt(stmt: TextureFunctionStmt): void {
         let texture = stmt.texture;
         let isDepth = texture instanceof DepthTexture;
-        let textureResource = new ResourceInfo(ResourceType.Texture, texture.textureId);
+        let textureResource = new ResourceInfo(ResourceType.Texture, texture.textureId, -1);
         let requiresSampler = false;
         let resultNumComponents = isDepth ? 1 : 4;
 
@@ -488,9 +488,19 @@ export class CodegenVisitor extends IRVisitor {
                 requiresSampler = false;
                 break;
             }
+            case TextureFunctionKind.LoadLod: {
+                requiresSampler = false;
+                break;
+            }
             case TextureFunctionKind.Store: {
                 requiresSampler = false;
                 textureResource.resourceType = ResourceType.StorageTexture;
+                break;
+            }
+            case TextureFunctionKind.StoreLod: {
+                requiresSampler = false;
+                textureResource.resourceType = ResourceType.StorageTexture;
+                textureResource.levelID = stmt.getAdditionalOperands()[0].getVal();
                 break;
             }
             default: {
@@ -544,10 +554,26 @@ export class CodegenVisitor extends IRVisitor {
                 this.body.write(`textureLoad(${textureName}, ${coordsExpr}, 0);\n`);
                 break;
             }
+            case TextureFunctionKind.LoadLod: {
+                assert(stmt.getAdditionalOperands().length === 1, 'expecting 1 lod value');
+                this.emitLet(stmt.getName(), texelTypeName);
+                this.body.write(`textureLoad(${textureName}, ${coordsExpr},  ${stmt
+                        .getAdditionalOperands()[0]
+                        .getName()});\n`
+                );
+                break;
+            }
             case TextureFunctionKind.Store: {
                 let valuePrimType = stmt.getAdditionalOperands()[0].getReturnType();
                 let valueTypeName = this.getScalarOrVectorTypeName(valuePrimType, stmt.getAdditionalOperands().length);
                 let valueExpr = this.getScalarOrVectorExpr(stmt.getAdditionalOperands(), valueTypeName);
+                this.body.write(this.getIndentation(), `textureStore(${textureName}, ${coordsExpr}, ${valueExpr});\n`);
+                break;
+            }
+            case TextureFunctionKind.StoreLod: {
+                let valuePrimType = stmt.getAdditionalOperands()[1].getReturnType();
+                let valueTypeName = this.getScalarOrVectorTypeName(valuePrimType, stmt.getAdditionalOperands().slice(1).length);
+                let valueExpr = this.getScalarOrVectorExpr(stmt.getAdditionalOperands().slice(1), valueTypeName);
                 this.body.write(this.getIndentation(), `textureStore(${textureName}, ${coordsExpr}, ${valueExpr});\n`);
                 break;
             }
@@ -1364,9 +1390,9 @@ var<${storageAndAcess}> ${name}: ${name}_type;
         let texture = this.runtime.textures[textureInfo.resourceID!];
         let name: string;
         if (isStorageTexture) {
-            name = `texture_binding_${binding}`;
+            name = `texture_binding_${binding + textureInfo.levelID + 1}`;
         } else {
-            name = `storage_texture_binding_${binding}`;
+            name = `storage_texture_binding_${binding + textureInfo.levelID + 1}`;
         }
         let elementType = this.getPrimitiveTypeName(PrimitiveType.f32);
         let typeName = '';

@@ -25,7 +25,7 @@ declare class Runtime {
     getGPUBindGroupEntries(bindings: ResourceBinding[], argsBuffer: GPUBuffer | undefined, retsBuffer: GPUBuffer | undefined): GPUBindGroupEntry[];
     materializeTree(tree: SNodeTree): void;
     addTexture(texture: TextureBase): void;
-    createGPUTexture(dimensions: number[], dimensionality: TextureDimensionality, format: GPUTextureFormat, renderAttachment: boolean, requiresStorage: boolean, sampleCount: number): GPUTexture;
+    createGPUTexture(dimensions: number[], dimensionality: TextureDimensionality, format: GPUTextureFormat, renderAttachment: boolean, requiresStorage: boolean, sampleCount: number, mipLevelCount?: number): GPUTexture;
     createGPUSampler(depth: boolean, samplingOptions: TextureSamplingOptions): GPUSampler;
     createGPUCanvasContext(htmlCanvas: HTMLCanvasElement): [
         GPUCanvasContext,

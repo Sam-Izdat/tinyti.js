@@ -62,6 +62,9 @@ export abstract class Stmt {
     operands: Stmt[] = [];
 
     abstract getKind(): StmtKind;
+    getVal(): number {
+        return 0;
+    }
 }
 
 export class ConstStmt extends Stmt {
@@ -71,6 +74,10 @@ export class ConstStmt extends Stmt {
 
     override getKind(): StmtKind {
         return StmtKind.ConstStmt;
+    }
+
+    override getVal(): number {
+        return this.val;
     }
 }
 
@@ -686,17 +693,21 @@ export enum TextureFunctionKind {
     SampleLod,
     SampleCompare,
     Load,
+    LoadLod
     Store,
+    StoreLod
 }
 
 export function getTextureFunctionResultType(func: TextureFunctionKind) {
     switch (func) {
         case TextureFunctionKind.Load:
+        case TextureFunctionKind.LoadLod:
         case TextureFunctionKind.SampleLod:
         case TextureFunctionKind.Sample:
         case TextureFunctionKind.SampleCompare:
             return PrimitiveType.f32;
         case TextureFunctionKind.Store:
+        case TextureFunctionKind.StoreLod:
             return undefined;
     }
 }

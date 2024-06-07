@@ -6,10 +6,12 @@ export {
     texture,
     canvasTexture,
     depthTexture,
+    Sampler,
     Texture,
     CubeTexture,
     TextureSamplingOptions,
     WrapMode,
+    FilterMode
 } from './api/Textures';
 export { Canvas } from './api/ui/Canvas';
 export { Timer } from './utils/Timer';

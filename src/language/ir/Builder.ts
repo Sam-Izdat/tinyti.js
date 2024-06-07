@@ -222,9 +222,22 @@ export class IRBuilder {
         );
     }
 
+    create_texture_load_lod(texture: TextureBase, coords: Stmt[], lod: Stmt) {
+        return this.pushNewStmt(
+            // new TextureFunctionStmt(texture, TextureFunctionKind.Load, coords, [], this.getNewId())
+            new TextureFunctionStmt(texture, TextureFunctionKind.LoadLod, coords, [lod], this.getNewId())
+        );
+    }
+
     create_texture_store(texture: TextureBase, coords: Stmt[], vals: Stmt[]) {
         return this.pushNewStmt(
             new TextureFunctionStmt(texture, TextureFunctionKind.Store, coords, vals, this.getNewId())
+        );
+    }
+
+    create_texture_store_lod(texture: TextureBase, coords: Stmt[], vals: Stmt[], lod: Stmt) {
+        return this.pushNewStmt(
+            new TextureFunctionStmt(texture, TextureFunctionKind.StoreLod, coords, [lod, ...vals], this.getNewId())
         );
     }
 

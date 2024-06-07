@@ -18,10 +18,10 @@ enum ResourceType {
 }
 
 class ResourceInfo {
-    constructor(public resourceType: ResourceType, public resourceID?: number) {}
+    constructor(public resourceType: ResourceType, public resourceID?: number, public levelID: number = -1) {}
 
     equals(that: ResourceInfo): boolean {
-        return this.resourceID === that.resourceID && this.resourceType === that.resourceType;
+        return this.resourceID === that.resourceID && this.levelID == that.levelID && this.resourceType === that.resourceType;
     }
 }
 class ResourceBinding {
@@ -222,6 +222,7 @@ class CompiledRenderPipeline {
             },
             layout: 'auto',
         };
+
         if (renderPassParams.depthAttachment !== null) {
             let depthWrite = true;
             if (renderPassParams.depthAttachment.storeDepth === false) {

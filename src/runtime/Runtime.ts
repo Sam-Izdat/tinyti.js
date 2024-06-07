@@ -197,7 +197,11 @@ class Runtime {
                 layout: task.pipeline!.getBindGroupLayout(0),
                 entries: this.getGPUBindGroupEntries(task.params.bindings, thisArgsBuffer, thisRetsBufferGPU?.buffer),
             });
-
+            // ~~~~~~~~~
+            // console.log('!!!!!!!!!!');
+            // console.log(task.params.bindings);
+            // console.log(this.getGPUBindGroupEntries(task.params.bindings, thisArgsBuffer, thisRetsBufferGPU?.buffer));
+            // console.log('!!!!!!!!!!');
             if (task instanceof CompiledTask) {
                 beginCompute();
                 if (computeState.computePipeline !== task.pipeline!) {
@@ -373,7 +377,13 @@ class Runtime {
                 }
                 case ResourceType.StorageTexture:
                 case ResourceType.Texture: {
-                    texture = this.textures[binding.info.resourceID!].getGPUTextureView();
+                    if (binding.info.levelID >= 0) {
+                        // @@@@@@@@@@@@@@
+                        texture = this.textures[binding.info.resourceID!].getGPUTextureViewLod(binding.info.levelID);
+                    } else {
+                        texture = this.textures[binding.info.resourceID!].getGPUTextureView();
+                    }
+                    
                     break;
                 }
                 case ResourceType.Sampler: {
@@ -422,6 +432,8 @@ class Runtime {
     }
 
     addTexture(texture: TextureBase) {
+        // ~~~~~~~~~
+        // console.log("ADDING TEXTURE");
         this.textures.push(texture);
     }
 
@@ -431,7 +443,8 @@ class Runtime {
         format: GPUTextureFormat,
         renderAttachment: boolean,
         requiresStorage: boolean,
-        sampleCount: number
+        sampleCount: number,
+        mipLevelCount: number = 1
     ): GPUTexture {
         let getDescriptor = (): GPUTextureDescriptor => {
             let usage = GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC | GPUTextureUsage.TEXTURE_BINDING;
@@ -462,7 +475,8 @@ class Runtime {
                     dimension: '2d',
                     format: format,
                     usage: usage,
-                    sampleCount,
+                    mipLevelCount: mipLevelCount,
+                    sampleCount
                 };
             } else {
                 // if(dimensions.length === 3){
@@ -482,11 +496,13 @@ class Runtime {
             addressModeU: samplingOptions.wrapModeU || 'repeat',
             addressModeV: samplingOptions.wrapModeV || 'repeat',
             addressModeW: samplingOptions.wrapModeW || 'repeat',
-            minFilter: 'linear',
-            magFilter: 'linear',
-            mipmapFilter: 'linear',
-            maxAnisotropy: 16,
+            minFilter: samplingOptions.minFilter || 'linear',
+            magFilter: samplingOptions.magFilter || 'linear',
+            mipmapFilter: samplingOptions.mipmapFilter || 'linear'
         };
+        if (desc.minFilter == 'linear' && desc.magFilter == 'linear' && desc.mipmapFilter == 'linear') {
+            desc.maxAnisotropy = 16;
+        }
         if (depth) {
             desc.compare = 'less-equal';
         }

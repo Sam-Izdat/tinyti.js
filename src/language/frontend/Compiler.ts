@@ -552,7 +552,9 @@ class CompilingVisitor extends ASTVisitor<Value> {
             'textureSampleCompare',
             'textureSampleLod',
             'textureLoad',
+            'textureLoadLod',
             'textureStore',
+            'textureStoreLod',
             'getVertexIndex',
             'getInstanceIndex',
             'getFragCoord',
@@ -991,6 +993,50 @@ class CompilingVisitor extends ASTVisitor<Value> {
             }
         }
 
+        if (this.isBuiltinFunctionWithName(funcText, 'textureLoadLod')) {
+            this.assertNode(
+                node,
+                node.arguments.length === 3,
+                'textureLoad() must have exactly 3 arguments, one for texture, one for the coordinates, one for lod'
+            );
+            this.assertNode(
+                node,
+                argumentValues[0].getType().getCategory() === TypeCategory.HostObjectReference &&
+                    isTexture(argumentValues[0].hostSideValue),
+                "the first argument of textureLoad() must be a texture object that's visible in kernel scope"
+            );
+            let texture = argumentValues[0].hostSideValue as TextureBase;
+            let isDepth = texture instanceof DepthTexture;
+            let dim = texture.getTextureDimensionality();
+
+            let coords = argumentValues[1];
+            this.assertNode(node, coords.getType().getCategory() === TypeCategory.Vector, 'coords must be a vector');
+            let vecType = coords.getType() as VectorType;
+            let requiredComponentCount = getTextureCoordsNumComponents(dim);
+            this.assertNode(
+                node,
+                vecType.getNumRows() === requiredComponentCount,
+                `coords component count must be ${requiredComponentCount}`
+            );
+            this.assertNode(node, vecType.getPrimitiveType() === PrimitiveType.i32, 'coords must be a i32 vector');
+
+            let lod = argumentValues[2];
+            let sampleResultStmt = this.irBuilder.create_texture_load_lod(texture, coords.stmts.slice(), lod.stmts[0]);
+
+
+            if (isDepth) {
+                let result = new Value(new ScalarType(PrimitiveType.f32), [sampleResultStmt]);
+                return result;
+            } else {
+                let resultType = new VectorType(PrimitiveType.f32, 4);
+                let result = new Value(resultType);
+                for (let i = 0; i < 4; ++i) {
+                    result.stmts.push(this.irBuilder.create_composite_extract(sampleResultStmt, i));
+                }
+                return result;
+            }
+        }
+
         if (this.isBuiltinFunctionWithName(funcText, 'textureStore')) {
             this.assertNode(
                 node,
@@ -1033,6 +1079,52 @@ class CompilingVisitor extends ASTVisitor<Value> {
             this.assertNode(node, valueVecType.getPrimitiveType() === PrimitiveType.f32, 'value must be a f32 vector');
 
             this.irBuilder.create_texture_store(texture, coords.stmts, value.stmts);
+            return;
+        }
+
+        if (this.isBuiltinFunctionWithName(funcText, 'textureStoreLod')) {
+            this.assertNode(
+                node,
+                node.arguments.length === 4,
+                'textureStore() must have exactly 4 arguments, one for texture, one for the coordinates, one for the texel value, one for lod'
+            );
+            this.assertNode(
+                node,
+                argumentValues[0].getType().getCategory() === TypeCategory.HostObjectReference &&
+                    argumentValues[0].hostSideValue instanceof Texture,
+                "the first argument of textureStore() must be a texture object that's visible in kernel scope"
+            );
+            let texture = argumentValues[0].hostSideValue as Texture;
+            this.assertNode(
+                node,
+                texture.numComponents === 4,
+                ' textureStore() can only be used on textures with 4-component texels'
+            );
+            let dim = texture.getTextureDimensionality();
+
+            let coords = argumentValues[1];
+            this.assertNode(node, coords.getType().getCategory() === TypeCategory.Vector, 'coords must be a vector');
+            let coordsVecType = coords.getType() as VectorType;
+            let requiredComponentCount = getTextureCoordsNumComponents(dim);
+            this.assertNode(
+                node,
+                coordsVecType.getNumRows() === requiredComponentCount,
+                `coords component count must be ${requiredComponentCount}`
+            );
+            this.assertNode(
+                node,
+                coordsVecType.getPrimitiveType() === PrimitiveType.i32,
+                'coords must be a i32 vector'
+            );
+
+            let value = argumentValues[2];
+            this.assertNode(node, value.getType().getCategory() === TypeCategory.Vector, 'coords must be a vector');
+            let valueVecType = value.getType() as VectorType;
+            this.assertNode(node, valueVecType.getNumRows() === 4, `value component count must be 4`);
+            this.assertNode(node, valueVecType.getPrimitiveType() === PrimitiveType.f32, 'value must be a f32 vector');
+
+            let lod = argumentValues[3];
+            this.irBuilder.create_texture_store_lod(texture, coords.stmts, value.stmts, lod.stmts[0]);
             return;
         }
         if (this.isBuiltinFunctionWithName(funcText, 'getVertexIndex')) {

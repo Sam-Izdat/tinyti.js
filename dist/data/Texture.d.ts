@@ -10,8 +10,11 @@ export declare abstract class TextureBase {
     abstract canUseAsRengerTarget(): boolean;
     abstract getGPUTexture(): GPUTexture;
     abstract getGPUTextureView(): GPUTextureView;
+    abstract getGPUTextureViewLod(lod: number): GPUTextureView;
+    abstract generateMipmaps(): boolean;
     abstract getGPUSampler(): GPUSampler;
     abstract getTextureDimensionality(): TextureDimensionality;
+    abstract getMipLevelCount(): number;
     textureId: number;
     sampleCount: number;
 }
@@ -20,30 +23,46 @@ export declare enum WrapMode {
     ClampToEdge = "clamp-to-edge",
     MirrorRepeat = "mirror-repeat"
 }
+export declare enum FilterMode {
+    Linear = "linear",
+    Nearest = "nearest"
+}
 export interface TextureSamplingOptions {
     wrapModeU?: WrapMode;
     wrapModeV?: WrapMode;
     wrapModeW?: WrapMode;
+    magFilter?: FilterMode;
+    minFilter?: FilterMode;
+    mipmapFilter?: FilterMode;
+}
+export declare class Sampler {
+    samplingOptions: TextureSamplingOptions;
+    constructor(samplingOptions: TextureSamplingOptions);
+    gpuSampler: GPUSampler;
 }
 export declare class Texture extends TextureBase {
     numComponents: number;
     dimensions: number[];
-    samplingOptions: TextureSamplingOptions;
-    constructor(numComponents: number, dimensions: number[], sampleCount: number, samplingOptions: TextureSamplingOptions);
+    constructor(numComponents: number, dimensions: number[], sampleCount: number, sampler: Sampler, mipLevelCount?: number);
     private texture;
     private textureView;
+    private mipLevelViews;
     private sampler;
     multiSampledRenderTexture: GPUTexture | null;
+    private mipLevelCount;
     getGPUTextureFormat(): GPUTextureFormat;
     canUseAsRengerTarget(): boolean;
     getGPUTexture(): GPUTexture;
     getGPUTextureView(): GPUTextureView;
+    getGPUTextureViewLod(lod?: number): GPUTextureView;
+    generateMipmaps(): boolean;
     getGPUSampler(): GPUSampler;
     getTextureDimensionality(): TextureDimensionality;
+    getMipLevelCount(): number;
     copyFrom(src: Texture): Promise<void>;
-    static createFromBitmap(bitmap: ImageBitmap): Promise<Texture>;
-    static createFromHtmlImage(image: HTMLImageElement): Promise<Texture>;
-    static createFromURL(url: string): Promise<Texture>;
+    static createFromBitmap(bitmap: ImageBitmap, sampleCount?: number, sampler?: Sampler, mipLevelCount?: number): Promise<Texture>;
+    static createFromHtmlImage(image: HTMLImageElement, sampleCount?: number, sampler?: Sampler, mipLevelCount?: number): Promise<Texture>;
+    static createFromURL(url: string, sampleCount?: number, sampler?: Sampler, mipLevelCount?: number): Promise<Texture>;
 }
 export declare class CanvasTexture extends TextureBase {
     htmlCanvas: HTMLCanvasElement;
@@ -57,8 +76,11 @@ export declare class CanvasTexture extends TextureBase {
     canUseAsRengerTarget(): boolean;
     getGPUTexture(): GPUTexture;
     getGPUTextureView(): GPUTextureView;
+    getGPUTextureViewLod(lod?: number): GPUTextureView;
+    generateMipmaps(): boolean;
     getGPUSampler(): GPUSampler;
     getTextureDimensionality(): TextureDimensionality;
+    getMipLevelCount(): number;
 }
 export declare class DepthTexture extends TextureBase {
     dimensions: number[];
@@ -70,7 +92,10 @@ export declare class DepthTexture extends TextureBase {
     canUseAsRengerTarget(): boolean;
     getGPUTexture(): GPUTexture;
     getTextureDimensionality(): TextureDimensionality;
+    getMipLevelCount(): number;
     getGPUTextureView(): GPUTextureView;
+    getGPUTextureViewLod(lod?: number): GPUTextureView;
+    generateMipmaps(): boolean;
     getGPUSampler(): GPUSampler;
 }
 export declare class CubeTexture extends TextureBase {
@@ -83,7 +108,10 @@ export declare class CubeTexture extends TextureBase {
     canUseAsRengerTarget(): boolean;
     getGPUTexture(): GPUTexture;
     getTextureDimensionality(): TextureDimensionality;
+    getMipLevelCount(): number;
     getGPUTextureView(): GPUTextureView;
+    getGPUTextureViewLod(lod?: number): GPUTextureView;
+    generateMipmaps(): boolean;
     getGPUSampler(): GPUSampler;
     static createFromBitmap(bitmaps: ImageBitmap[]): Promise<CubeTexture>;
     static createFromHtmlImage(images: HTMLImageElement[]): Promise<CubeTexture>;

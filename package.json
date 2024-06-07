@@ -1,6 +1,6 @@
 {
-  "name": "taichi.js",
-  "version": "0.0.36",
+  "name": "taichi.js-tm",
+  "version": "0.1.36",
   "description": "Modern GPU Compute Framework in Javascript",
   "homepage": "https://taichi-js.com",
   "repository": {
@@ -38,7 +38,8 @@
     "@loaders.gl/gltf": "^3.1.8",
     "@webgpu/types": "^0.1.20",
     "gl-matrix": "^3.4.3",
-    "tslib": "^2.4.0"
+    "tslib": "^2.4.0",
+    "webgpu-spd": "^2.0.0"
   },
   "browser": {
     "fs": false,

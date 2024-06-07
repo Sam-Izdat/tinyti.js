@@ -36,7 +36,9 @@ export declare function textureSample(texture: TextureBase, coords: any): ti.typ
 export declare function textureSampleLod(texture: TextureBase, coords: any, lod: number): ti.types.vector;
 export declare function textureSampleCompare(texture: DepthTexture, coords: any, depthReference: number): ti.types.vector;
 export declare function textureLoad(texture: TextureBase, coords: any): ti.types.vector;
+export declare function textureLoadLod(texture: TextureBase, coords: any, lod: number): ti.types.vector;
 export declare function textureStore(texture: TextureBase, coords: any, val: any): void;
+export declare function textureStoreLod(texture: TextureBase, coords: any, val: any, lod: number): void;
 export declare function getVertexIndex(): number;
 export declare function getInstanceIndex(): number;
 export declare function getFragCoord(): ti.types.vector;
