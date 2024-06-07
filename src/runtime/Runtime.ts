@@ -197,11 +197,6 @@ class Runtime {
                 layout: task.pipeline!.getBindGroupLayout(0),
                 entries: this.getGPUBindGroupEntries(task.params.bindings, thisArgsBuffer, thisRetsBufferGPU?.buffer),
             });
-            // ~~~~~~~~~
-            // console.log('!!!!!!!!!!');
-            // console.log(task.params.bindings);
-            // console.log(this.getGPUBindGroupEntries(task.params.bindings, thisArgsBuffer, thisRetsBufferGPU?.buffer));
-            // console.log('!!!!!!!!!!');
             if (task instanceof CompiledTask) {
                 beginCompute();
                 if (computeState.computePipeline !== task.pipeline!) {
@@ -378,7 +373,6 @@ class Runtime {
                 case ResourceType.StorageTexture:
                 case ResourceType.Texture: {
                     if (binding.info.levelID >= 0) {
-                        // @@@@@@@@@@@@@@
                         texture = this.textures[binding.info.resourceID!].getGPUTextureViewLod(binding.info.levelID);
                     } else {
                         texture = this.textures[binding.info.resourceID!].getGPUTextureView();
@@ -432,8 +426,6 @@ class Runtime {
     }
 
     addTexture(texture: TextureBase) {
-        // ~~~~~~~~~
-        // console.log("ADDING TEXTURE");
         this.textures.push(texture);
     }
 

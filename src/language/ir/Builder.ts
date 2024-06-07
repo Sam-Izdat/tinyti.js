@@ -224,7 +224,6 @@ export class IRBuilder {
 
     create_texture_load_lod(texture: TextureBase, coords: Stmt[], lod: Stmt) {
         return this.pushNewStmt(
-            // new TextureFunctionStmt(texture, TextureFunctionKind.Load, coords, [], this.getNewId())
             new TextureFunctionStmt(texture, TextureFunctionKind.LoadLod, coords, [lod], this.getNewId())
         );
     }
