@@ -1390,9 +1390,9 @@ var<${storageAndAcess}> ${name}: ${name}_type;
         let texture = this.runtime.textures[textureInfo.resourceID!];
         let name: string;
         if (isStorageTexture) {
-            name = `texture_binding_${binding + textureInfo.levelID + 1}`;
+            name = `texture_binding_${textureInfo.resourceID}_${textureInfo.levelID + 1}`;
         } else {
-            name = `storage_texture_binding_${binding + textureInfo.levelID + 1}`;
+            name = `storage_texture_binding_${textureInfo.resourceID}_${textureInfo.levelID + 1}`;
         }
         let elementType = this.getPrimitiveTypeName(PrimitiveType.f32);
         let typeName = '';
