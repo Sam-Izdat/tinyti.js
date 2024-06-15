@@ -279,6 +279,8 @@ export class CodegenVisitor extends IRVisitor {
                     return `(${lhs} != ${rhs})`;
                 case BinaryOpType.atan2:
                     return `atan2(f32(${lhs}), f32(${rhs}))`;
+                case BinaryOpType.step:
+                    return `step(f32(${lhs}), f32(${rhs}))`;
                 case BinaryOpType.logical_or:
                     return `(${lhs} | ${rhs})`;
                 case BinaryOpType.logical_and:

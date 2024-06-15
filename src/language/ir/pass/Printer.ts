@@ -154,6 +154,8 @@ class IRPrinter extends IRVisitor {
                     return 'cmp_ne';
                 case BinaryOpType.atan2:
                     return 'atan2';
+                case BinaryOpType.step:
+                    return 'step';
                 case BinaryOpType.pow:
                     return 'pow';
                 case BinaryOpType.logical_or:

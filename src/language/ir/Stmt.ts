@@ -282,6 +282,7 @@ export enum BinaryOpType {
     cmp_eq,
     cmp_ne,
     atan2,
+    step,
     pow,
     logical_or,
     logical_and,

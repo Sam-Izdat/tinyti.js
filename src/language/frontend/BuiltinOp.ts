@@ -402,6 +402,8 @@ class BuiltinOpFactory {
             new BuiltinBinaryOp('/', irBuilder, true, true, BinaryOpType.truediv, (l, r) => l / r),
             new BuiltinBinaryOp('div', irBuilder, true, true, BinaryOpType.truediv, (l, r) => l / r),
 
+
+
             // doesn't work
             new BuiltinBinaryOp('<<', irBuilder, false, false, BinaryOpType.bit_shl),
             new BuiltinBinaryOp('>>>', irBuilder, false, false, BinaryOpType.bit_shr),
@@ -410,6 +412,7 @@ class BuiltinOpFactory {
             new BuiltinBinaryOp('min', irBuilder, true, true, BinaryOpType.min, (l, r) => Math.min(l, r)),
             new BuiltinBinaryOp('pow', irBuilder, true, true, BinaryOpType.pow, (l, r) => Math.pow(l, r)),
             new BuiltinBinaryOp('atan2', irBuilder, true, true, BinaryOpType.atan2, (l, r) => Math.atan2(l, r)),
+            new BuiltinBinaryOp('step', irBuilder, true, true, BinaryOpType.step, (l, r) => l > r ? 1.0 : 0.0),
 
             new BuiltinUnaryOp('sin', irBuilder, UnaryOpType.sin),
             new BuiltinUnaryOp('cos', irBuilder, UnaryOpType.cos),
@@ -424,6 +427,7 @@ class BuiltinOpFactory {
             new BuiltinUnaryOp('logical_not', irBuilder, UnaryOpType.logic_not),
             new BuiltinUnaryOp('abs', irBuilder, UnaryOpType.abs),
             new BuiltinUnaryOp('floor', irBuilder, UnaryOpType.floor),
+            new BuiltinUnaryOp('ceil', irBuilder, UnaryOpType.ceil),
             new BuiltinUnaryOp('sgn', irBuilder, UnaryOpType.sgn),
             new BuiltinUnaryOp('sqrt', irBuilder, UnaryOpType.sqrt),
             new BuiltinUnaryOp('rsqrt', irBuilder, UnaryOpType.rsqrt),

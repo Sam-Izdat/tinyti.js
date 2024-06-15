@@ -152,9 +152,10 @@ export declare enum BinaryOpType {
     cmp_eq = 18,
     cmp_ne = 19,
     atan2 = 20,
-    pow = 21,
-    logical_or = 22,
-    logical_and = 23
+    step = 21,
+    pow = 22,
+    logical_or = 23,
+    logical_and = 24
 }
 export declare function getBinaryOpReturnType(leftType: PrimitiveType, rightType: PrimitiveType, op: BinaryOpType): PrimitiveType | undefined;
 export declare class BinaryOpStmt extends Stmt {

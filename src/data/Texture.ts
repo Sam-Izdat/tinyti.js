@@ -110,13 +110,11 @@ export class Texture extends TextureBase {
         Program.getCurrentProgram().addTexture(this);
         this.textureView = this.texture.createView();
         this.mipLevelViews = []
-        if (this.mipLevelCount > 1) {
-            for (let i = 0; i < this.mipLevelCount; i++) {
-                this.mipLevelViews.push(this.texture.createView({
-                    baseMipLevel: i,
-                    mipLevelCount: 1,
-                }));
-            }
+        for (let i = 0; i < this.mipLevelCount; i++) {
+            this.mipLevelViews.push(this.texture.createView({
+                baseMipLevel: i,
+                mipLevelCount: 1,
+            }));
         }
         // this.sampler = Program.getCurrentProgram().runtime!.createGPUSampler(false, samplingOptions);
         this.sampler = sampler.gpuSampler;
