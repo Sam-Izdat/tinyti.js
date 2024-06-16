@@ -428,6 +428,7 @@ class BuiltinOpFactory {
             new BuiltinUnaryOp('abs', irBuilder, UnaryOpType.abs),
             new BuiltinUnaryOp('floor', irBuilder, UnaryOpType.floor),
             new BuiltinUnaryOp('ceil', irBuilder, UnaryOpType.ceil),
+            new BuiltinUnaryOp('round', irBuilder, UnaryOpType.ceil),
             new BuiltinUnaryOp('sgn', irBuilder, UnaryOpType.sgn),
             new BuiltinUnaryOp('sqrt', irBuilder, UnaryOpType.sqrt),
             new BuiltinUnaryOp('rsqrt', irBuilder, UnaryOpType.rsqrt),
