@@ -1,6 +1,6 @@
 {
   "name": "taichi.js-tm",
-  "version": "0.1.36",
+  "version": "0.1.4",
   "description": "Modern GPU Compute Framework in Javascript",
   "homepage": "https://taichi-js.com",
   "repository": {
