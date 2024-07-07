@@ -1,18 +1,18 @@
 {
-  "name": "taichi.js-tm",
-  "version": "0.1.4",
-  "description": "Modern GPU Compute Framework in Javascript",
-  "homepage": "https://taichi-js.com",
+  "name": "tinyti.js",
+  "version": "0.1.0",
+  "description": "Fork of taichi.js - Modern GPU Compute Framework in Javascript",
+  "homepage": "",
   "repository": {
     "type": "git",
-    "url": "https://github.com/AmesingFlank/taichi.js"
+    "url": "https://github.com/Sam-Izdat/tinyti.js"
   },
   "author": {
-    "name": "Dunfan Lu",
-    "email": "ldfrank533@outlook.com"
+    "name": "Sam Izdat",
+    "email": ""
   },
-  "main": "./dist/taichi.umd.js",
-  "module": "./dist/taichi.js",
+  "main": "./dist/tinyti.umd.js",
+  "module": "./dist/tinyti.js",
   "scripts": {
     "build_dev": "rollup --config rollup/rollup.config.dev.js -w",
     "build_prod": "rollup --config rollup/rollup.config.prod.js",

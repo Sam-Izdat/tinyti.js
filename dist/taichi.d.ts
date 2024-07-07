@@ -5,8 +5,6 @@ export { texture, canvasTexture, depthTexture, Sampler, Texture, CubeTexture, Te
 export { Canvas } from './api/ui/Canvas';
 export { Timer } from './utils/Timer';
 export * from './api/KernelScopeBuiltin';
-import * as engine from './engine/index';
-export { engine };
 import * as types from './api/Types';
 export { types };
 export { runAllTests } from './tests/All';

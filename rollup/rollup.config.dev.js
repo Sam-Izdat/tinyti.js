@@ -9,11 +9,11 @@ export default {
   input: 'src/taichi.ts',
   output: [
     {
-      file: "dist/taichi.dev.js",
+      file: "dist/tinyti.dev.js",
       format: 'es',
     },
     {
-      file: "dist/taichi.dev.umd.js",
+      file: "dist/tinyti.dev.umd.js",
       name: "ti",
       format: 'umd',
     }
