@@ -154,12 +154,20 @@ export class Texture extends TextureBase {
         return this.textureView;
     }
 
-    getGPUTextureViewLod(lod:number = 0): GPUTextureView {
+    getGPUTextureViewLod(lod: number = 0): GPUTextureView {
         return this.mipLevelViews[lod];
     }
 
-    generateMipmaps() {
-        downsampler.generateMipmaps(Program.getCurrentProgram().runtime!.device!, this.texture, {filter: SPDFilters.Average});
+    generateMipmaps(filter: string = 'average') {
+        let filterID = SPDFilters.Average;
+        if (filter == 'max'){
+            filterID = SPDFilters.Max;
+        } else if (filter == 'min') {
+            filterID = SPDFilters.Min;
+        } else if (filter == 'minmax') {
+            filterID = SPDFilters.MinMax;
+        }
+        downsampler.generateMipmaps(Program.getCurrentProgram().runtime!.device!, this.texture, {filter: filterID});
         return true;
     }
 

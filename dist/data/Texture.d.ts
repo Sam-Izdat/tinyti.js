@@ -55,7 +55,7 @@ export declare class Texture extends TextureBase {
     getGPUTexture(): GPUTexture;
     getGPUTextureView(): GPUTextureView;
     getGPUTextureViewLod(lod?: number): GPUTextureView;
-    generateMipmaps(): boolean;
+    generateMipmaps(filter?: string): boolean;
     getGPUSampler(): GPUSampler;
     getTextureDimensionality(): TextureDimensionality;
     getMipLevelCount(): number;
