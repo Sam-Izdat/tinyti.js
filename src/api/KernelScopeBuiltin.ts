@@ -114,6 +114,23 @@ export function normalized(v: ti.types.vector): ti.types.vector {
     return div(v, norm(v)) as ti.types.vector;
 }
 
+export function vlength(v: ti.types.vector): number {
+    let sum = 0.;
+    let vlen = 3;
+    for (let i = 0; i < vlen; i++) { sum += v[i] * v[i]; }
+    return Math.sqrt(sum);
+}
+
+export function distance(a: ti.types.vector, b: ti.types.vector): number {
+    assert(a.length === b.length, 'vector size mismatch');
+    let sum = 0.;
+    for (let i = 0; i < a.length; i++) { 
+      let diff = a[i] - b[i]; 
+      sum += diff * diff; 
+    }
+    return Math.sqrt(sum);
+}
+
 export function dot(a: ti.types.vector, b: ti.types.vector): number {
     assert(a.length === b.length, 'vector size mismatch');
     let sum = 0;

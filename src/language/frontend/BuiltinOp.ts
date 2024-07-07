@@ -801,6 +801,48 @@ class BuiltinOpFactory {
             }
         );
 
+        let vlength = new BuiltinCustomOp(
+            'vlength',
+            1,
+            (args: Value[]) => {
+                if (args.length === 1 && args[0].getType().getCategory() === TypeCategory.Vector) {
+                    return TypeError.createNoError();
+                } else {
+                    return TypeError.createError('expecting vector');
+                }
+            },
+            (args: Value[]) => {
+                let resultProd = opsMap.get('*')!.apply([args[0], args[0]]);
+                let resultSum = sum.apply([resultProd]);
+                let result = opsMap.get('sqrt')!.apply([resultSum]);
+                return result;
+            }
+        );
+
+        let distance = new BuiltinCustomOp(
+            'distance',
+            2,
+            (args: Value[]) => {
+                let valid =
+                    args.length === 2 &&
+                    args[0].getType().getCategory() === TypeCategory.Vector &&
+                    args[1].getType().getCategory() === TypeCategory.Vector &&
+                    (args[0].getType() as VectorType).getNumRows() === (args[1].getType() as VectorType).getNumRows();
+                if (valid) {
+                    return TypeError.createNoError();
+                } else {
+                    return TypeError.createError('expecting vectors of the same size ');
+                }
+            },
+            (args: Value[]) => {
+                let resultDiff = opsMap.get('-')!.apply([args[0], args[1]]);
+                let resultProd = opsMap.get('*')!.apply([resultDiff, resultDiff]);
+                let resultSum = sum.apply([resultProd]);
+                let result = opsMap.get('sqrt')!.apply([resultSum]);
+                return result;
+            }
+        );
+
         let dot = new BuiltinCustomOp(
             'dot',
             2,
@@ -1136,6 +1178,8 @@ class BuiltinOpFactory {
             normSqr,
             norm,
             normalized,
+            vlength,
+            distance,
             dot,
             cross,
             matmul,

@@ -13,6 +13,8 @@ export declare function div(a: number | ti.types.vector, b: number | ti.types.ve
 export declare function normSqr(v: ti.types.vector): number;
 export declare function norm(v: ti.types.vector): number;
 export declare function normalized(v: ti.types.vector): ti.types.vector;
+export declare function vlength(v: ti.types.vector): number;
+export declare function distance(a: ti.types.vector, b: ti.types.vector): number;
 export declare function dot(a: ti.types.vector, b: ti.types.vector): number;
 export declare function cross(a: ti.types.vector, b: ti.types.vector): ti.types.vector;
 export declare function matmul(a: ti.types.matrix | ti.types.vector, b: ti.types.vector): ti.types.matrix | ti.types.vector;
