@@ -12,7 +12,7 @@ export declare abstract class TextureBase {
     abstract getGPUTextureView(): GPUTextureView;
     abstract getGPUTextureViewLod(lod: number): GPUTextureView;
     abstract generateMipmaps(): boolean;
-    abstract getGPUSampler(): GPUSampler;
+    abstract getGPUSampler(): GPUSampler | null;
     abstract getTextureDimensionality(): TextureDimensionality;
     abstract getMipLevelCount(): number;
     textureId: number;
@@ -26,6 +26,10 @@ export declare enum WrapMode {
 export declare enum FilterMode {
     Linear = "linear",
     Nearest = "nearest"
+}
+export declare enum TextureDataType {
+    float16 = 1,
+    float32 = 2
 }
 export interface TextureSamplingOptions {
     wrapModeU?: WrapMode;
@@ -43,26 +47,27 @@ export declare class Sampler {
 export declare class Texture extends TextureBase {
     numComponents: number;
     dimensions: number[];
-    constructor(numComponents: number, dimensions: number[], sampleCount: number, sampler: Sampler, mipLevelCount?: number);
+    constructor(numComponents: number, dimensions: number[], sampleCount: number, sampler?: Sampler | null, mipLevelCount?: number, dtype?: TextureDataType);
     private texture;
     private textureView;
     private mipLevelViews;
     private sampler;
     multiSampledRenderTexture: GPUTexture | null;
     private mipLevelCount;
+    private dtype;
     getGPUTextureFormat(): GPUTextureFormat;
     canUseAsRengerTarget(): boolean;
     getGPUTexture(): GPUTexture;
     getGPUTextureView(): GPUTextureView;
     getGPUTextureViewLod(lod?: number): GPUTextureView;
     generateMipmaps(filter?: string): boolean;
-    getGPUSampler(): GPUSampler;
+    getGPUSampler(): GPUSampler | null;
     getTextureDimensionality(): TextureDimensionality;
     getMipLevelCount(): number;
     copyFrom(src: Texture): Promise<void>;
-    static createFromBitmap(bitmap: ImageBitmap, sampleCount?: number, sampler?: Sampler, mipLevelCount?: number): Promise<Texture>;
-    static createFromHtmlImage(image: HTMLImageElement, sampleCount?: number, sampler?: Sampler, mipLevelCount?: number): Promise<Texture>;
-    static createFromURL(url: string, sampleCount?: number, sampler?: Sampler, mipLevelCount?: number): Promise<Texture>;
+    static createFromBitmap(bitmap: ImageBitmap, sampleCount?: number, sampler?: Sampler, mipLevelCount?: number, dtype?: TextureDataType): Promise<Texture>;
+    static createFromHtmlImage(image: HTMLImageElement, sampleCount?: number, sampler?: Sampler, mipLevelCount?: number, dtype?: TextureDataType): Promise<Texture>;
+    static createFromURL(url: string, sampleCount?: number, sampler?: Sampler, mipLevelCount?: number, dtype?: TextureDataType): Promise<Texture>;
 }
 export declare class CanvasTexture extends TextureBase {
     htmlCanvas: HTMLCanvasElement;

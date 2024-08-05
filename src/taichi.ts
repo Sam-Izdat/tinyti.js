@@ -11,7 +11,8 @@ export {
     CubeTexture,
     TextureSamplingOptions,
     WrapMode,
-    FilterMode
+    FilterMode,
+    TextureDataType,
 } from './api/Textures';
 export { Canvas } from './api/ui/Canvas';
 export { Timer } from './utils/Timer';

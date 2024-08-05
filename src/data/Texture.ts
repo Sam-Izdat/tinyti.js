@@ -35,7 +35,7 @@ export abstract class TextureBase {
     abstract getGPUTextureView(): GPUTextureView;
     abstract getGPUTextureViewLod(lod:number): GPUTextureView;
     abstract generateMipmaps(): boolean;
-    abstract getGPUSampler(): GPUSampler; // TODO rethink this... samplers and texture probably should be decoupled?
+    abstract getGPUSampler(): GPUSampler | null; // TODO rethink this... samplers and texture probably should be decoupled?
     abstract getTextureDimensionality(): TextureDimensionality;
     abstract getMipLevelCount(): number;
     textureId: number = -1;
@@ -51,6 +51,11 @@ export enum WrapMode {
 export enum FilterMode {
     Linear = 'linear',
     Nearest = 'nearest',
+}
+
+export enum TextureDataType {
+    float16 = 1,
+    float32 = 2,
 }
 
 export interface TextureSamplingOptions {
@@ -74,16 +79,18 @@ export class Texture extends TextureBase {
         public numComponents: number,
         public dimensions: number[],
         sampleCount: number,
-        sampler: Sampler,
-        mipLevelCount: number = 1
+        sampler?: Sampler | null,
+        mipLevelCount: number = 1,
+        dtype: TextureDataType = TextureDataType.float16,
     ) {
         super();
         this.sampleCount = sampleCount;
         this.mipLevelCount = mipLevelCount;
+        this.dtype = dtype;
         assert(dimensions.length <= 3 && dimensions.length >= 1, 'texture dimensions must be >= 1 and <= 3');
         assert(
             numComponents === 1 || numComponents === 2 || numComponents === 4,
-            'texture dimensions must be 1, 2, or 4'
+            'texture component count must be 1, 2, or 4'
         );
 
         this.texture = Program.getCurrentProgram().runtime!.createGPUTexture(
@@ -117,29 +124,47 @@ export class Texture extends TextureBase {
             }));
         }
         // this.sampler = Program.getCurrentProgram().runtime!.createGPUSampler(false, samplingOptions);
-        this.sampler = sampler.gpuSampler;
+        this.sampler = sampler?.gpuSampler ?? null;
     }
 
     private texture: GPUTexture;
     private textureView: GPUTextureView;
     private mipLevelViews: GPUTextureView[];
-    private sampler: GPUSampler;
+    private sampler: GPUSampler | null = null;
     multiSampledRenderTexture: GPUTexture | null = null;
     private mipLevelCount: number;
+    private dtype: TextureDataType;
 
     getGPUTextureFormat(): GPUTextureFormat {
-        switch (this.numComponents) {
-            // 32bit float types cannot be filtered (and thus sampled)
-            case 1:
-                return 'r16float';
-            case 2:
-                return 'rg16float';
-            case 4:
-                return 'rgba16float';
-            default:
-                error('unsupported component count');
-                return 'rgba16float';
+        if (this.dtype == TextureDataType.float16){
+            switch (this.numComponents) {
+                // 32bit float types cannot be filtered (and thus sampled)
+                case 1:
+                    return 'r16float';
+                case 2:
+                    return 'rg16float';
+                case 4:
+                    return 'rgba16float';
+                default:
+                    error('unsupported component count');
+                    return 'rgba16float';
+            }   
+        } else if (this.dtype == TextureDataType.float32) {
+            switch (this.numComponents) {
+                // 32bit float types cannot be filtered (and thus sampled)
+                case 1:
+                    return 'r32float';
+                case 2:
+                    return 'rg32float';
+                case 4:
+                    return 'rgba32float';
+                default:
+                    error('unsupported component count');
+                    return 'rgba32float';
+            }
         }
+
+        return 'rgba16float';
     }
 
     canUseAsRengerTarget() {
@@ -171,7 +196,7 @@ export class Texture extends TextureBase {
         return true;
     }
 
-    getGPUSampler(): GPUSampler {
+    getGPUSampler(): GPUSampler | null {
         return this.sampler;
     }
 
@@ -203,23 +228,38 @@ export class Texture extends TextureBase {
         );
     }
 
-    static async createFromBitmap(bitmap: ImageBitmap, sampleCount: number = 1, sampler: Sampler = new Sampler({}), mipLevelCount: number = 1) {
+    static async createFromBitmap(
+        bitmap: ImageBitmap, 
+        sampleCount: number = 1, 
+        sampler: Sampler = new Sampler({}), 
+        mipLevelCount: number = 1,
+        dtype: TextureDataType = TextureDataType.float16) {
         let dimensions = [bitmap.width, bitmap.height];
-        let texture = new Texture(4, dimensions, sampleCount, sampler, mipLevelCount);
+        let texture = new Texture(4, dimensions, sampleCount, sampler, mipLevelCount, dtype);
         await Program.getCurrentProgram().runtime!.copyImageBitmapToTexture(bitmap, texture.getGPUTexture());
         return texture;
     }
 
-    static async createFromHtmlImage(image: HTMLImageElement, sampleCount: number = 1, sampler: Sampler = new Sampler({}), mipLevelCount: number = 1) {
+    static async createFromHtmlImage(
+        image: HTMLImageElement, 
+        sampleCount: number = 1, 
+        sampler: Sampler = new Sampler({}), 
+        mipLevelCount: number = 1,
+        dtype: TextureDataType = TextureDataType.float16) {
         let bitmap = await createImageBitmap(image);
-        return await this.createFromBitmap(bitmap, sampleCount, sampler, mipLevelCount);
+        return await this.createFromBitmap(bitmap, sampleCount, sampler, mipLevelCount, dtype);
     }
 
-    static async createFromURL(url: string, sampleCount: number = 1, sampler: Sampler = new Sampler({}), mipLevelCount: number = 1): Promise<Texture> {
+    static async createFromURL(
+        url: string, 
+        sampleCount: number = 1, 
+        sampler: Sampler = new Sampler({}), 
+        mipLevelCount: number = 1,
+        dtype: TextureDataType = TextureDataType.float16): Promise<Texture> {
         let img = new Image();
         img.src = url;
         await img.decode();
-        return await this.createFromHtmlImage(img, sampleCount, sampler, mipLevelCount);
+        return await this.createFromHtmlImage(img, sampleCount, sampler, mipLevelCount, dtype);
     }
 }
 

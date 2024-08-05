@@ -1,7 +1,7 @@
 export { init } from './api/Init';
 export * from './api/Kernels';
 export * from './api/Fields';
-export { texture, canvasTexture, depthTexture, Sampler, Texture, CubeTexture, TextureSamplingOptions, WrapMode, FilterMode } from './api/Textures';
+export { texture, canvasTexture, depthTexture, Sampler, Texture, CubeTexture, TextureSamplingOptions, WrapMode, FilterMode, TextureDataType, } from './api/Textures';
 export { Canvas } from './api/ui/Canvas';
 export { Timer } from './utils/Timer';
 export * from './api/KernelScopeBuiltin';
