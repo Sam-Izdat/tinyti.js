@@ -1955,26 +1955,33 @@ class CompilingVisitor extends ASTVisitor<Value> {
         if (vertexArgs.length >= 4) {
             this.assertNode(
                 null,
-                argumentValues[3].getType().getCategory() === TypeCategory.Scalar &&
-                    TypeUtils.getPrimitiveType(argumentValues[3].getType()) == PrimitiveType.i32,
-                `the indirect count must be a i32 scalar`
+                argumentValues[3].getType().getCategory() === TypeCategory.HostObjectReference &&
+                    argumentValues[3].hostSideValue instanceof Field,
+                `the indirect count must be a i32 as field`
             );
-            if (argumentValues[3].isCompileTimeConstant()) {
-                this.currentRenderPipelineParams.indirectCount = argumentValues[3].compileTimeConstants[0];
-            } else {
-                this.currentRenderPipelineParams.indirectCount = FieldFactory.createField(
-                    new ScalarType(PrimitiveType.i32),
-                    [1]
-                );
-                Program.getCurrentProgram().materializeCurrentTree();
+            
+            // Changes: This previously took a compile-time static or dynamic int value, then created field.
+            // Allowing a field to given explicitly eliminates delay and resulting flickering with frustum cull.
 
-                let ptr = this.irBuilder.create_global_ptr(
-                    this.currentRenderPipelineParams.indirectCount,
-                    [this.irBuilder.get_int32(0)],
-                    0
-                );
-                this.irBuilder.create_global_store(ptr, argumentValues[3].stmts[0]);
-            }
+            let indirectCount = argumentValues[3].hostSideValue as Field;
+            this.currentRenderPipelineParams.indirectCount = indirectCount;
+
+            // if (argumentValues[3].isCompileTimeConstant()) {
+            //     this.currentRenderPipelineParams.indirectCount = argumentValues[3].compileTimeConstants[0];
+            // } else {
+                // this.currentRenderPipelineParams.indirectCount = FieldFactory.createField(
+                //     new ScalarType(PrimitiveType.i32),
+                //     [1]
+                // );
+                // Program.getCurrentProgram().materializeCurrentTree();
+
+                // let ptr = this.irBuilder.create_global_ptr(
+                //     this.currentRenderPipelineParams.indirectCount,
+                //     [this.irBuilder.get_int32(0)],
+                //     0
+                // );
+                // this.irBuilder.create_global_store(ptr, argumentValues[3].stmts[0]);
+            // }
         }
         if (vertexArgs.length >= 5) {
             this.errorNode(
