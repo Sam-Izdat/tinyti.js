@@ -113,21 +113,14 @@ export class ParsedFunction {
     }
 
     errorTsDiagnostics(diags: readonly ts.DiagnosticWithLocation[]) {
-        let message = '';
         for (let diag of diags) {
             if (diag.category === ts.DiagnosticCategory.Error) {
                 let startPos = diag.start;
                 let endPos = diag.start + diag.length;
                 let code = this.getSourceCodeAt(startPos, endPos);
-                message += `
-                Syntax Error: ${diag.messageText}   
-                at:  
-                ${code}
-                `;
+                let message = `Syntax Error: ${diag.messageText}`;
+                error('Kernel/function code cannot be parsed as Javascript: \n' + message, {code: code, startPos: startPos, endPos: endPos});
             }
-        }
-        if (message !== '') {
-            error('Kernel/function code cannot be parsed as Javascript: \n' + message, {code: code});
         }
     }
 
@@ -140,12 +133,13 @@ export class ParsedFunction {
 
     errorNode(node: ts.Node, ...args: any[]) {
         let code = this.getNodeSourceCode(node);
-        let errorMessage = 'Error: ';
+        let startPos = node.getStart();
+        let endPos = node.getEnd();
+        let errorMessage = '';
         for (let a of args) {
             errorMessage += String(a);
         }
-        errorMessage += `\nat:\n ${code} `;
-        error(errorMessage, {code: code});
+        error(errorMessage, {code: code, startPos: startPos, endPos: endPos});
     }
 
     assertNode(node: ts.Node, condition: boolean, ...args: any[]) {
