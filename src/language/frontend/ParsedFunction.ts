@@ -127,7 +127,7 @@ export class ParsedFunction {
             }
         }
         if (message !== '') {
-            error('Kernel/function code cannot be parsed as Javascript: \n' + message);
+            error('Kernel/function code cannot be parsed as Javascript: \n' + message, {code: code});
         }
     }
 
@@ -145,7 +145,7 @@ export class ParsedFunction {
             errorMessage += String(a);
         }
         errorMessage += `\nat:\n ${code} `;
-        error(errorMessage);
+        error(errorMessage, {code: code});
     }
 
     assertNode(node: ts.Node, condition: boolean, ...args: any[]) {

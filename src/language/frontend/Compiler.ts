@@ -1961,7 +1961,7 @@ class CompilingVisitor extends ASTVisitor<Value> {
             );
             
             // Changes: This previously took a compile-time static or dynamic int value, then created field.
-            // Allowing a field to given explicitly eliminates delay and resulting flickering with frustum cull.
+            // Allowing a field to be given explicitly eliminates delay and resulting flickering with frustum cull.
 
             let indirectCount = argumentValues[3].hostSideValue as Field;
             this.currentRenderPipelineParams.indirectCount = indirectCount;
