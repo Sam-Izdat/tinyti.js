@@ -18,7 +18,7 @@ export function error(...args: any[]) {
         const message = args[0];
         const info = args[1];
         console.error('FATAL ERROR: ' + message + `\nat:\n ${info.code} `);
-        throw new TaichiJSError('Taichi JS ERROR: ' + message, info);
+        throw new TaichiJSError(message, info);
     } else {
         console.error('FATAL ERROR: ', ...args);
         throw new TaichiJSError('Taichi JS ERROR ', {});
