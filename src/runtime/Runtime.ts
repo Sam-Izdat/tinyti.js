@@ -381,7 +381,7 @@ class Runtime {
                     break;
                 }
                 case ResourceType.Sampler: {
-                    sampler = this.textures[binding.info.resourceID!].getGPUSampler();
+                    sampler = this.textures[binding.info.resourceID!].getGPUSampler() ?? undefined;
                     break;
                 }
             }
@@ -541,10 +541,11 @@ class Runtime {
         pool.returnBuffer(rootBufferCopy);
         return new FieldHostSideCopy(resultInt, resultFloat);
     }
-
-    async hostToDevice(field: Field, hostArray: Int32Array, offsetBytes: number = 0) {
+    async hostToDevice(field: Field, hostArray: Int32Array, offsetBytes: number = 0, transferBytes: number | null = null) {
+        transferBytes = transferBytes ?? hostArray.byteLength;
+        
         const rootBufferCopy = this.device!.createBuffer({
-            size: hostArray.byteLength,
+            size: transferBytes,
             usage: GPUBufferUsage.COPY_SRC | GPUBufferUsage.MAP_WRITE,
             mappedAtCreation: true,
         });
@@ -558,14 +559,14 @@ class Runtime {
             0,
             this.materializedTrees[field.snodeTree.treeId].rootBuffer!,
             field.offsetBytes + offsetBytes,
-            hostArray.byteLength
+            transferBytes
         );
+
         this.device!.queue.submit([commandEncoder.finish()]);
         await this.device!.queue.onSubmittedWorkDone();
 
         rootBufferCopy.destroy();
     }
-
     getRootBuffer(treeId: number): GPUBuffer {
         return this.materializedTrees[treeId].rootBuffer!;
     }

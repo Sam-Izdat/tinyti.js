@@ -110,6 +110,43 @@ class Field {
         await Program.getCurrentProgram().runtime!.hostToDevice(this, result);
     }
 
+    async fromArrayScoped(values: any, startIndex: number | null = null, endIndex: number | null = null) {
+        // like slice, extracts up to but not including end index
+        this.ensureMaterialized();
+        let curr = values;
+        for (let i = 0; i < this.dimensions.length; ++i) {
+            if (!Array.isArray(curr)) {
+                error('expecting array');
+            }
+            if (curr.length !== this.dimensions[i]) {
+                error('array size mismatch');
+            }
+            curr = curr[0];
+        }
+        endIndex = endIndex ?? values.length;
+        startIndex = startIndex ?? 0;
+        let values1D = values.slice(startIndex, endIndex).flat(curr.length - 1);
+
+        let int32Arrays: Int32Array[] = [];
+
+        for (let val of values1D) {
+            int32Arrays.push(elementToInt32Array(val, this.elementType));
+        }
+
+        let elementLength = int32Arrays[0].length;
+        // let totalLength = (endIndex - startIndex) * elementLength;
+        let totalLength = int32Arrays.length * elementLength;
+        let result = new Int32Array(totalLength);
+
+        for (let i = 0; i < int32Arrays.length; i++) {
+            result.set(int32Arrays[i], i * elementLength);
+        }
+
+        let offsetBytes = startIndex * elementLength;
+
+        await Program.getCurrentProgram().runtime!.hostToDevice(this, result, offsetBytes);
+    }
+    
     async set(indices: number[], value: any) {
         this.ensureMaterialized();
         if (indices.length !== this.dimensions.length) {

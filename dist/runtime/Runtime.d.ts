@@ -32,7 +32,7 @@ declare class Runtime {
         GPUTextureFormat
     ];
     deviceToHost(field: Field, offsetBytes?: number, sizeBytes?: number): Promise<FieldHostSideCopy>;
-    hostToDevice(field: Field, hostArray: Int32Array, offsetBytes?: number): Promise<void>;
+    hostToDevice(field: Field, hostArray: Int32Array, offsetBytes?: number, transferBytes?: number | null): Promise<void>;
     getRootBuffer(treeId: number): GPUBuffer;
     copyImageBitmapToTexture(bitmap: ImageBitmap, texture: GPUTexture): Promise<void>;
     copyImageBitmapsToCubeTexture(bitmaps: ImageBitmap[], texture: GPUTexture): Promise<void>;

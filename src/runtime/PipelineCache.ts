@@ -8,8 +8,9 @@ export class PipelineCache {
             });
             this.shaderModuleCache.set(code, module);
             // console.log("new module", code)
+            console.log("new module");
         } else {
-            // console.log("found existing module")
+            console.log("found existing module")
         }
         return this.shaderModuleCache.get(code)!;
     }
@@ -62,7 +63,7 @@ export class PipelineCache {
     getOrCreateComputePipeline(desc: GPUComputePipelineDescriptor): GPUComputePipeline {
         for (let pair of this.computePipelineCache) {
             if (this.equals(pair[0], desc)) {
-                //console.log("found existing compute pipeline", pair[0], desc)
+                console.log("found existing compute pipeline", pair[0], desc)
                 return pair[1];
             }
         }
@@ -76,7 +77,7 @@ export class PipelineCache {
     getOrCreateRenderPipeline(desc: GPURenderPipelineDescriptor): GPURenderPipeline {
         for (let pair of this.RenderPipelineCache) {
             if (this.equals(pair[0], desc)) {
-                //console.log("found existing render pipeline")
+                console.log("found existing render pipeline")
                 return pair[1];
             }
         }

@@ -14,6 +14,7 @@ declare class Field {
     get(indices: number[]): Promise<any>;
     fromArray1D(values: number[]): Promise<void>;
     fromArray(values: any): Promise<void>;
+    fromArrayScoped(values: any, startIndex?: number | null, endIndex?: number | null): Promise<void>;
     set(indices: number[], value: any): Promise<void>;
 }
 export { Field };
