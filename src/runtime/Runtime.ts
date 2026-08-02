@@ -531,15 +531,53 @@ class Runtime {
             sizeBytes
         );
         this.device!.queue.submit([commandEncoder.finish()]);
-        await this.sync();
 
         await rootBufferCopy.buffer.mapAsync(GPUMapMode.READ, 0, sizeBytes);
         let mappedRange = rootBufferCopy.buffer.getMappedRange(0, sizeBytes);
-        let resultInt = Array.from(new Int32Array(mappedRange));
-        let resultFloat = Array.from(new Float32Array(mappedRange));
+        // Copy into an owned ArrayBuffer so we can unmap immediately.
+        // Two typed array views share the same underlying buffer — no extra allocation.
+        let ownedBuffer = new ArrayBuffer(mappedRange.byteLength);
+        new Uint8Array(ownedBuffer).set(new Uint8Array(mappedRange));
         rootBufferCopy.buffer.unmap();
         pool.returnBuffer(rootBufferCopy);
+        let resultInt = new Int32Array(ownedBuffer);
+        let resultFloat = new Float32Array(ownedBuffer);
         return new FieldHostSideCopy(resultInt, resultFloat);
+    }
+    async deviceToHostMultiple(fields: Field[]): Promise<FieldHostSideCopy[]> {
+        let pool = BufferPool.getPool(this.device!, GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ);
+        let stagingBuffers: PooledBuffer[] = [];
+        let sizes: number[] = [];
+        let commandEncoder = this.device!.createCommandEncoder();
+        for (let field of fields) {
+            let sizeBytes = field.sizeBytes;
+            let staging = pool.getBuffer(sizeBytes);
+            commandEncoder.copyBufferToBuffer(
+                this.materializedTrees[field.snodeTree.treeId].rootBuffer!,
+                field.offsetBytes,
+                staging.buffer,
+                0,
+                sizeBytes
+            );
+            stagingBuffers.push(staging);
+            sizes.push(sizeBytes);
+        }
+        this.device!.queue.submit([commandEncoder.finish()]);
+
+        await Promise.all(
+            stagingBuffers.map((s, i) => s.buffer.mapAsync(GPUMapMode.READ, 0, sizes[i]))
+        );
+
+        let results: FieldHostSideCopy[] = [];
+        for (let i = 0; i < stagingBuffers.length; ++i) {
+            let mappedRange = stagingBuffers[i].buffer.getMappedRange(0, sizes[i]);
+            let ownedBuffer = new ArrayBuffer(mappedRange.byteLength);
+            new Uint8Array(ownedBuffer).set(new Uint8Array(mappedRange));
+            stagingBuffers[i].buffer.unmap();
+            pool.returnBuffer(stagingBuffers[i]);
+            results.push(new FieldHostSideCopy(new Int32Array(ownedBuffer), new Float32Array(ownedBuffer)));
+        }
+        return results;
     }
     async hostToDevice(field: Field, hostArray: Int32Array, offsetBytes: number = 0, transferBytes: number | null = null) {
         transferBytes = transferBytes ?? hostArray.byteLength;
@@ -627,7 +665,7 @@ class Runtime {
 }
 
 class FieldHostSideCopy {
-    constructor(public intArray: number[], public floatArray: number[]) {}
+    constructor(public intArray: Int32Array, public floatArray: Float32Array) {}
 }
 
 class IndirectDrawCommand {

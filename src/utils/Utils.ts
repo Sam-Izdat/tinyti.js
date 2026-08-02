@@ -48,25 +48,56 @@ export function groupByN<T>(arr: T[], n: number): T[][] {
     return result;
 }
 
-export function toTensorElement(intArray: number[], floatArray: number[], elementType: Type): any {
-    let selectedArray = intArray;
+export function toTensorElement(intArray: number[] | Int32Array, floatArray: number[] | Float32Array, elementType: Type): any {
+    let selectedArray: number[] | Int32Array | Float32Array = intArray;
     if (TypeUtils.getPrimitiveType(elementType) === PrimitiveType.f32) {
         selectedArray = floatArray;
     }
     if (elementType.getCategory() === TypeCategory.Scalar) {
         return selectedArray[0];
     } else if (elementType.getCategory() === TypeCategory.Vector) {
-        return selectedArray;
+        return Array.from(selectedArray);
     } else if (elementType.getCategory() === TypeCategory.Matrix) {
         let matType = elementType as MatrixType;
-        return groupByN(selectedArray, matType.getNumCols());
+        return groupByN(Array.from(selectedArray), matType.getNumCols());
     } else {
         error('expecting tensor type');
         return [];
     }
 }
 
-export function toStructElement(intArray: number[], floatArray: number[], elementType: StructType): any {
+function toTensorElementAtOffset(
+    intArray: Int32Array, floatArray: Float32Array,
+    offset: number, N: number, elementType: Type
+): any {
+    let isFloat = TypeUtils.getPrimitiveType(elementType) === PrimitiveType.f32;
+    if (elementType.getCategory() === TypeCategory.Scalar) {
+        return isFloat ? floatArray[offset] : intArray[offset];
+    } else if (elementType.getCategory() === TypeCategory.Vector) {
+        let src = isFloat ? floatArray : intArray;
+        let result = new Array(N);
+        for (let i = 0; i < N; ++i) result[i] = src[offset + i];
+        return result;
+    } else if (elementType.getCategory() === TypeCategory.Matrix) {
+        let matType = elementType as MatrixType;
+        let numCols = matType.getNumCols();
+        let src = isFloat ? floatArray : intArray;
+        let result = new Array(matType.getNumRows());
+        for (let r = 0; r < matType.getNumRows(); ++r) {
+            let row = new Array(numCols);
+            for (let c = 0; c < numCols; ++c) {
+                row[c] = src[offset + r * numCols + c];
+            }
+            result[r] = row;
+        }
+        return result;
+    } else {
+        error('expecting tensor type');
+        return [];
+    }
+}
+
+export function toStructElement(intArray: number[] | Int32Array, floatArray: number[] | Float32Array, elementType: StructType): any {
     let result: any = {};
     for (let k of elementType.getPropertyNames()) {
         let offset = elementType.getPropertyPrimitiveOffset(k);
@@ -82,7 +113,39 @@ export function toStructElement(intArray: number[], floatArray: number[], elemen
     return result;
 }
 
-export function toElement(intArray: number[], floatArray: number[], elementType: Type): any {
+function toStructElementAtOffset(
+    intArray: Int32Array, floatArray: Float32Array,
+    baseOffset: number, elementType: StructType
+): any {
+    let result: any = {};
+    for (let k of elementType.getPropertyNames()) {
+        let offset = elementType.getPropertyPrimitiveOffset(k);
+        let propType = elementType.getPropertyType(k);
+        let length = propType.getPrimitivesList().length;
+        if (TypeUtils.isTensorType(propType)) {
+            result[k] = toTensorElementAtOffset(
+                intArray, floatArray,
+                baseOffset + offset, length, propType
+            );
+        } else if (propType.getCategory() === TypeCategory.Struct) {
+            result[k] = toStructElementAtOffset(
+                intArray, floatArray,
+                baseOffset + offset, propType as StructType
+            );
+        } else {
+            // fallback to slice-based for unknown types
+            let thisProp = toElement(
+                intArray.slice(baseOffset + offset, baseOffset + offset + length),
+                floatArray.slice(baseOffset + offset, baseOffset + offset + length),
+                propType
+            );
+            result[k] = thisProp;
+        }
+    }
+    return result;
+}
+
+export function toElement(intArray: number[] | Int32Array, floatArray: number[] | Float32Array, elementType: Type): any {
     if (TypeUtils.isTensorType(elementType)) {
         return toTensorElement(intArray, floatArray, elementType);
     }
@@ -95,19 +158,32 @@ export function toElement(intArray: number[], floatArray: number[], elementType:
 }
 
 export function int32ArrayToElement(int32Array: Int32Array, elementType: Type): any {
-    let float32Array = new Float32Array(int32Array.buffer);
-    let intArray = Array.from(int32Array);
-    let floatArray = Array.from(float32Array);
-    return toElement(intArray, floatArray, elementType);
+    let float32Array = new Float32Array(int32Array.buffer, int32Array.byteOffset, int32Array.length);
+    return toElement(int32Array, float32Array, elementType);
 }
 
-export function groupElements(intArray: number[], floatArray: number[], elementType: Type): any[] {
+export function groupElements(intArray: Int32Array, floatArray: Float32Array, elementType: Type): any[] {
     let N = elementType.getPrimitivesList().length;
-    let intArrays = groupByN(intArray, N);
-    let floatArrays = groupByN(floatArray, N);
-    let result: any[] = [];
-    for (let i = 0; i < intArrays.length; ++i) {
-        result.push(toElement(intArrays[i], floatArrays[i], elementType));
+    let numElements = (intArray.length / N) | 0;
+    let result = new Array(numElements);
+    if (TypeUtils.isTensorType(elementType)) {
+        for (let i = 0; i < numElements; ++i) {
+            result[i] = toTensorElementAtOffset(intArray, floatArray, i * N, N, elementType);
+        }
+    } else if (elementType.getCategory() === TypeCategory.Struct) {
+        for (let i = 0; i < numElements; ++i) {
+            result[i] = toStructElementAtOffset(intArray, floatArray, i * N, elementType as StructType);
+        }
+    } else {
+        // fallback: slice-based (should not normally be reached)
+        for (let i = 0; i < numElements; ++i) {
+            let offset = i * N;
+            result[i] = toElement(
+                intArray.slice(offset, offset + N),
+                floatArray.slice(offset, offset + N),
+                elementType
+            );
+        }
     }
     return result;
 }

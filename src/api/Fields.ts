@@ -55,3 +55,7 @@ export const Struct = {
 export function materializeFields() {
     Program.getCurrentProgram().materializeCurrentTree();
 }
+
+export async function toArrays(fields: Field[]): Promise<any[][]> {
+    return Field.toArrays(fields);
+}

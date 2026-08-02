@@ -17,9 +17,9 @@ class Field {
         if (TypeUtils.isTensorType(this.elementType)) {
             let copy = await Program.getCurrentProgram().runtime!.deviceToHost(this);
             if (TypeUtils.getPrimitiveType(this.elementType) === PrimitiveType.f32) {
-                return copy.floatArray;
+                return Array.from(copy.floatArray);
             } else {
-                return copy.intArray;
+                return Array.from(copy.intArray);
             }
         } else {
             error('toArray1D can only be used for scalar/vector/matrix fields');
@@ -28,6 +28,23 @@ class Field {
     }
 
     async toInt32Array(): Promise<number[]> {
+        let copy = await Program.getCurrentProgram().runtime!.deviceToHost(this);
+        return Array.from(copy.intArray);
+    }
+
+    /** Returns the raw Float32Array without JS array conversion. Faster than toArray1D(). */
+    async toFloat32Array(): Promise<Float32Array> {
+        if (TypeUtils.isTensorType(this.elementType)) {
+            let copy = await Program.getCurrentProgram().runtime!.deviceToHost(this);
+            return copy.floatArray;
+        } else {
+            error('toFloat32Array can only be used for scalar/vector/matrix fields');
+            return new Float32Array(0);
+        }
+    }
+
+    /** Returns the raw Int32Array without JS array conversion. Faster than toInt32Array(). */
+    async toTypedInt32Array(): Promise<Int32Array> {
         let copy = await Program.getCurrentProgram().runtime!.deviceToHost(this);
         return copy.intArray;
     }
@@ -41,6 +58,23 @@ class Field {
         let copy = await Program.getCurrentProgram().runtime!.deviceToHost(this);
         let elements1D = groupElements(copy.intArray, copy.floatArray, this.elementType);
         return reshape(elements1D, this.dimensions);
+    }
+
+    static async toArrays(fields: Field[]): Promise<any[][]> {
+        if (fields.length === 0) {
+            return [];
+        }
+        for (let field of fields) {
+            field.ensureMaterialized();
+        }
+        let copies = await Program.getCurrentProgram().runtime!.deviceToHostMultiple(fields);
+        let results: any[][] = [];
+        for (let i = 0; i < fields.length; ++i) {
+            let copy = copies[i];
+            let elements1D = groupElements(copy.intArray, copy.floatArray, fields[i].elementType);
+            results.push(reshape(elements1D, fields[i].dimensions));
+        }
+        return results;
     }
 
     async get(indices: number[]): Promise<any> {

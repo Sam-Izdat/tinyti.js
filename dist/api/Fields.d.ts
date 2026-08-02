@@ -11,3 +11,4 @@ export declare const Struct: {
     field: (members: any, dimensions: number[] | number, fragmentShaderWritable?: boolean) => Field;
 };
 export declare function materializeFields(): void;
+export declare function toArrays(fields: Field[]): Promise<any[][]>;

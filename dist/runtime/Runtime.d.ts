@@ -32,6 +32,7 @@ declare class Runtime {
         GPUTextureFormat
     ];
     deviceToHost(field: Field, offsetBytes?: number, sizeBytes?: number): Promise<FieldHostSideCopy>;
+    deviceToHostMultiple(fields: Field[]): Promise<FieldHostSideCopy[]>;
     hostToDevice(field: Field, hostArray: Int32Array, offsetBytes?: number, transferBytes?: number | null): Promise<void>;
     getRootBuffer(treeId: number): GPUBuffer;
     copyImageBitmapToTexture(bitmap: ImageBitmap, texture: GPUTexture): Promise<void>;
@@ -43,8 +44,8 @@ declare class Runtime {
     private supportsIndirectFirstInstance;
 }
 declare class FieldHostSideCopy {
-    intArray: number[];
-    floatArray: number[];
-    constructor(intArray: number[], floatArray: number[]);
+    intArray: Int32Array;
+    floatArray: Float32Array;
+    constructor(intArray: Int32Array, floatArray: Float32Array);
 }
 export { Runtime };
