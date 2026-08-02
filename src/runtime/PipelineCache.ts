@@ -2,14 +2,14 @@ export class PipelineCache {
     constructor(public device: GPUDevice) {}
     private shaderModuleCache: Map<string, GPUShaderModule> = new Map<string, GPUShaderModule>();
     getOrCreateShaderModule(code: string): GPUShaderModule {
+        const debug = (globalThis as any).DEBUG_PIPELINE_CACHE;
         if (!this.shaderModuleCache.has(code)) {
             let module = this.device!.createShaderModule({
                 code: code,
             });
             this.shaderModuleCache.set(code, module);
-            // console.log("new module", code)
-            console.log("new module");
-        } else {
+            if (debug) console.log("new module");
+        } else if (debug) {
             console.log("found existing module")
         }
         return this.shaderModuleCache.get(code)!;
@@ -61,9 +61,10 @@ export class PipelineCache {
     private computePipelineCache: [GPUComputePipelineDescriptor, GPUComputePipeline][] = [];
 
     getOrCreateComputePipeline(desc: GPUComputePipelineDescriptor): GPUComputePipeline {
+        const debug = (globalThis as any).DEBUG_PIPELINE_CACHE;
         for (let pair of this.computePipelineCache) {
             if (this.equals(pair[0], desc)) {
-                console.log("found existing compute pipeline", pair[0], desc)
+                if (debug) console.log("found existing compute pipeline", pair[0], desc)
                 return pair[1];
             }
         }
@@ -75,9 +76,10 @@ export class PipelineCache {
     private RenderPipelineCache: [GPURenderPipelineDescriptor, GPURenderPipeline][] = [];
 
     getOrCreateRenderPipeline(desc: GPURenderPipelineDescriptor): GPURenderPipeline {
+        const debug = (globalThis as any).DEBUG_PIPELINE_CACHE;
         for (let pair of this.RenderPipelineCache) {
             if (this.equals(pair[0], desc)) {
-                console.log("found existing render pipeline")
+                if (debug) console.log("found existing render pipeline")
                 return pair[1];
             }
         }
