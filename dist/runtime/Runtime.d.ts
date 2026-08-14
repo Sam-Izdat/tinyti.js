@@ -42,6 +42,12 @@ declare class Runtime {
     getGPUComputePipeline(desc: GPUComputePipelineDescriptor): GPUComputePipeline;
     getGPURenderPipeline(desc: GPURenderPipelineDescriptor): GPURenderPipeline;
     private supportsIndirectFirstInstance;
+    /**
+     * Tear down all GPU resources owned by this runtime. Essential to prevent
+     * GPU memory leaks: SNodeTree rootBuffers, textures, and the device/adapter
+     * are never GC'd by the JS engine. Call before re-init or on page teardown.
+     */
+    destroy(): void;
 }
 declare class FieldHostSideCopy {
     intArray: Int32Array;

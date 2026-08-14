@@ -38,6 +38,13 @@ export abstract class TextureBase {
     abstract getGPUSampler(): GPUSampler | null; // TODO rethink this... samplers and texture probably should be decoupled?
     abstract getTextureDimensionality(): TextureDimensionality;
     abstract getMipLevelCount(): number;
+    /**
+     * Release the GPU texture (and any ancillary GPU objects like multisampled
+     * render targets). The runtime calls this for every registered texture in
+     * destroy(). CanvasTexture delegates to the swapchain (no-op here; the
+     * canvas context is owned by the canvas and destroyed by the browser).
+     */
+    abstract destroy(): void;
     textureId: number = -1;
     sampleCount: number = 1;
 }
@@ -249,7 +256,6 @@ export class Texture extends TextureBase {
         let bitmap = await createImageBitmap(image);
         return await this.createFromBitmap(bitmap, sampleCount, sampler, mipLevelCount, dtype);
     }
-
     static async createFromURL(
         url: string, 
         sampleCount: number = 1, 
@@ -260,6 +266,12 @@ export class Texture extends TextureBase {
         img.src = url;
         await img.decode();
         return await this.createFromHtmlImage(img, sampleCount, sampler, mipLevelCount, dtype);
+    }
+
+    destroy() {
+        this.texture.destroy();
+        this.multiSampledRenderTexture?.destroy();
+        this.multiSampledRenderTexture = null;
     }
 }
 
@@ -325,6 +337,15 @@ export class CanvasTexture extends TextureBase {
     getMipLevelCount(): number {
         return 1;
     }
+
+    destroy() {
+        this.multiSampledRenderTexture?.destroy();
+        this.multiSampledRenderTexture = null;
+        // CanvasTexture's GPUTexture is the swapchain-backed current texture;
+        // its lifetime is tied to the canvas context. We don't destroy it
+        // here (would break ongoing presentation). The context itself is
+        // managed by the canvas element.
+    }
 }
 
 export class DepthTexture extends TextureBase {
@@ -379,6 +400,10 @@ export class DepthTexture extends TextureBase {
     }
     getGPUSampler(): GPUSampler {
         return this.sampler;
+    }
+
+    destroy() {
+        this.texture.destroy();
     }
 }
 
@@ -462,6 +487,10 @@ export class CubeTexture extends TextureBase {
             imgs.push(img);
         }
         return await this.createFromHtmlImage(imgs);
+    }
+
+    destroy() {
+        this.texture.destroy();
     }
 }
 

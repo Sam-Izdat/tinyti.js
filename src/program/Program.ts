@@ -51,7 +51,6 @@ class Program {
             await this.runtime.init();
         }
     }
-
     materializeCurrentTree() {
         if (this.partialTree.size === 0) {
             return;
@@ -65,6 +64,22 @@ class Program {
         this.partialTree.treeId = nextId;
     }
 
+    /**
+     * Destroy the runtime and all GPU resources it owns: SNodeTree root buffers,
+     * textures, global buffers, the device, and the adapter. Essential to
+     * prevent unbounded GPU memory growth when re-initializing tinyti (e.g.
+     * graph reload, device-loss recovery, or app teardown).
+     * After calling, a fresh init() is required before any further API use.
+     */
+    destroyRuntime() {
+        if (this.runtime) {
+            this.runtime.destroy();
+            this.runtime = null;
+        }
+        this.partialTree = new SNodeTree();
+        this.partialTree.treeId = 0;
+        this.kernelScope = new Scope();
+    }
     addTexture(texture: TextureBase) {
         let id = this.runtime!.textures.length;
         texture.textureId = id;

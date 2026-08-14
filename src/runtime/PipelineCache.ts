@@ -88,4 +88,12 @@ export class PipelineCache {
         this.RenderPipelineCache.push([desc, pipeline]);
         return pipeline;
     }
+
+    /** Clear caches. Pipelines and shader modules are released by the device
+     *  on destroy(); this just drops references to avoid retaining them. */
+    destroy() {
+        this.shaderModuleCache.clear();
+        this.computePipelineCache.length = 0;
+        this.RenderPipelineCache.length = 0;
+    }
 }

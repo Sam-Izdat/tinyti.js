@@ -56,6 +56,12 @@ export function materializeFields() {
     Program.getCurrentProgram().materializeCurrentTree();
 }
 
+/** Destroy the tinyti runtime and release all GPU resources.
+ *  After calling, `init()` must be called again before any other tinyti API use. */
+export async function destroy() {
+    Program.getCurrentProgram().destroyRuntime();
+}
+
 export async function toArrays(fields: Field[]): Promise<any[][]> {
     return Field.toArrays(fields);
 }

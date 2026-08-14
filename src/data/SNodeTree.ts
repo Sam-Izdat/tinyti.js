@@ -41,6 +41,20 @@ class SNodeTree {
 
         return field;
     }
+
+    /**
+     * Explicitly free the root GPU buffer backing this tree's fields.
+     * tinyti has no GC for GPU buffers — SNodeTrees are pushed onto
+     * Runtime.materializedTrees[] and accumulate forever unless explicitly
+     * destroyed. Called by Runtime.destroy() and FFA lifecycle management.
+     */
+    destroy() {
+        if (this.rootBuffer) {
+            this.rootBuffer.destroy();
+            this.rootBuffer = null;
+        }
+        this.fields.length = 0;
+    }
 }
 
 export { SNodeTree };

@@ -662,6 +662,31 @@ class Runtime {
     private supportsIndirectFirstInstance() {
         return this.adapter!.features.has('indirect-first-instance');
     }
+
+    /**
+     * Tear down all GPU resources owned by this runtime. Essential to prevent
+     * GPU memory leaks: SNodeTree rootBuffers, textures, and the device/adapter
+     * are never GC'd by the JS engine. Call before re-init or on page teardown.
+     */
+    destroy() {
+        for (const tree of this.materializedTrees) {
+            tree.destroy();
+        }
+        this.materializedTrees.length = 0;
+        for (const tex of this.textures) {
+            tex.destroy();
+        }
+        this.textures.length = 0;
+        this.globalTmpsBuffer?.destroy();
+        this.globalTmpsBuffer = null;
+        this.randStatesBuffer?.destroy();
+        this.randStatesBuffer = null;
+        this.pipelineCache?.destroy();
+        this.pipelineCache = null;
+        this.device?.destroy();
+        this.device = null;
+        this.adapter = null;
+    }
 }
 
 class FieldHostSideCopy {

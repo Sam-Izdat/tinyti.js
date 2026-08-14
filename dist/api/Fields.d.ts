@@ -11,4 +11,7 @@ export declare const Struct: {
     field: (members: any, dimensions: number[] | number, fragmentShaderWritable?: boolean) => Field;
 };
 export declare function materializeFields(): void;
+/** Destroy the tinyti runtime and release all GPU resources.
+ *  After calling, `init()` must be called again before any other tinyti API use. */
+export declare function destroy(): Promise<void>;
 export declare function toArrays(fields: Field[]): Promise<any[][]>;

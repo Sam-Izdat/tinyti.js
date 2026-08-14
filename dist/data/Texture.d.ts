@@ -15,6 +15,13 @@ export declare abstract class TextureBase {
     abstract getGPUSampler(): GPUSampler | null;
     abstract getTextureDimensionality(): TextureDimensionality;
     abstract getMipLevelCount(): number;
+    /**
+     * Release the GPU texture (and any ancillary GPU objects like multisampled
+     * render targets). The runtime calls this for every registered texture in
+     * destroy(). CanvasTexture delegates to the swapchain (no-op here; the
+     * canvas context is owned by the canvas and destroyed by the browser).
+     */
+    abstract destroy(): void;
     textureId: number;
     sampleCount: number;
 }
@@ -68,6 +75,7 @@ export declare class Texture extends TextureBase {
     static createFromBitmap(bitmap: ImageBitmap, sampleCount?: number, sampler?: Sampler, mipLevelCount?: number, dtype?: TextureDataType): Promise<Texture>;
     static createFromHtmlImage(image: HTMLImageElement, sampleCount?: number, sampler?: Sampler, mipLevelCount?: number, dtype?: TextureDataType): Promise<Texture>;
     static createFromURL(url: string, sampleCount?: number, sampler?: Sampler, mipLevelCount?: number, dtype?: TextureDataType): Promise<Texture>;
+    destroy(): void;
 }
 export declare class CanvasTexture extends TextureBase {
     htmlCanvas: HTMLCanvasElement;
@@ -86,6 +94,7 @@ export declare class CanvasTexture extends TextureBase {
     getGPUSampler(): GPUSampler;
     getTextureDimensionality(): TextureDimensionality;
     getMipLevelCount(): number;
+    destroy(): void;
 }
 export declare class DepthTexture extends TextureBase {
     dimensions: number[];
@@ -102,6 +111,7 @@ export declare class DepthTexture extends TextureBase {
     getGPUTextureViewLod(lod?: number): GPUTextureView;
     generateMipmaps(): boolean;
     getGPUSampler(): GPUSampler;
+    destroy(): void;
 }
 export declare class CubeTexture extends TextureBase {
     dimensions: number[];
@@ -121,5 +131,6 @@ export declare class CubeTexture extends TextureBase {
     static createFromBitmap(bitmaps: ImageBitmap[]): Promise<CubeTexture>;
     static createFromHtmlImage(images: HTMLImageElement[]): Promise<CubeTexture>;
     static createFromURL(urls: string[]): Promise<CubeTexture>;
+    destroy(): void;
 }
 export declare function isTexture(x: any): boolean;
