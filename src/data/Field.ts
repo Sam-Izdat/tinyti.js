@@ -202,16 +202,17 @@ export class Field {
     }
 
     /**
-     * Mark this field's allocation as no longer needed. Does NOT free the
-     * SNodeTree's root buffer directly — call SNodeTree.destroy() or
-     * Runtime.destroy() to actually release GPU memory. This method is
-     * provided so consumers can express intent and we can hook it into
-     * future per-field lifecycle tracking if tinyti gains a field-level
-     * allocator.
+     * Release the GPU buffer backing this field's SNodeTree. Frees the
+     * rootBuffer's GPU memory via SNodeTree.destroy().
+     *
+     * Safe because template kernels cache by field identity (templateArgs
+     * in KernelFactory). A destroyed field is never dispatched again — the
+     * caller has replaced it with a new field (new SNodeTree, new treeId,
+     * new kernel instance). The tombstoned tree stays in
+     * materializedTrees[] at its original index, but no live dispatch
+     * references it.
      */
     destroy() {
-        // No-op: tinyti's current design allocates fields into shared
-        // SNodeTree root buffers. GPU memory is freed via
-        // runtime.destroy() → snodeTree.destroy().
+        this.snodeTree?.destroy();
     }
 }
