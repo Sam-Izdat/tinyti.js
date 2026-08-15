@@ -24,6 +24,7 @@ class Runtime {
     kernels: CompiledKernel[] = [];
     materializedTrees: SNodeTree[] = [];
     textures: TextureBase[] = [];
+    allocCount: number = 0;
 
     private globalTmpsBuffer: GPUBuffer | null = null;
     private randStatesBuffer: GPUBuffer | null = null;
@@ -206,6 +207,16 @@ class Runtime {
                 computeEncoder!.setBindGroup(0, task.bindGroup!);
                 let workgroupSize = task.params.workgroupSize;
                 let numWorkgroups = task.params.numWorkgroups;
+
+                const maxWorkgroups = this.device!.limits.maxComputeWorkgroupsPerDimension;
+                if (numWorkgroups > maxWorkgroups) {
+                    throw new Error(
+                        `tinyti dispatch guard: kernel requests ${numWorkgroups} workgroups ` +
+                        `(workgroup ${workgroupSize}) > device limit ${maxWorkgroups}/dimension. ` +
+                        `This would silently lose the GPU device. Reduce the dispatch range or ` +
+                        `use a grid-stride kernel.`
+                    );
+                }
 
                 computeEncoder!.dispatchWorkgroups(numWorkgroups);
             } else if (task instanceof CompiledRenderPipeline) {
@@ -423,6 +434,7 @@ class Runtime {
         });
         tree.rootBuffer = rootBuffer;
         this.materializedTrees.push(tree);
+        this.allocCount++;
     }
 
     addTexture(texture: TextureBase) {
@@ -480,6 +492,7 @@ class Runtime {
                 };
             }
         };
+        this.allocCount++;
         return this.device!.createTexture(getDescriptor());
     }
 

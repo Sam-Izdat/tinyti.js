@@ -15,6 +15,7 @@ declare class Program {
     private static instance;
     private constructor();
     static getCurrentProgram(): Program;
+    getAllocCount(): number;
     materializeRuntime(): Promise<void>;
     materializeCurrentTree(): void;
     /**

@@ -9,6 +9,7 @@ declare class Runtime {
     kernels: CompiledKernel[];
     materializedTrees: SNodeTree[];
     textures: TextureBase[];
+    allocCount: number;
     private globalTmpsBuffer;
     private randStatesBuffer;
     private pipelineCache;

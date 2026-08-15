@@ -45,6 +45,10 @@ class Program {
         return Program.instance;
     }
 
+    getAllocCount(): number {
+        return this.runtime ? this.runtime.allocCount : 0;
+    }
+
     async materializeRuntime() {
         if (!this.runtime) {
             this.runtime = new Runtime();
