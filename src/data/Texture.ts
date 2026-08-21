@@ -45,6 +45,13 @@ export abstract class TextureBase {
      * canvas context is owned by the canvas and destroyed by the browser).
      */
     abstract destroy(): void;
+    /**
+     * Set to true by concrete destroy() implementations once the underlying
+     * GPU resources have been released. The JS object may still be referenced
+     * (e.g. by Runtime.textures) after destruction, so consumers walking the
+     * registry for memory accounting should skip destroyed entries.
+     */
+    destroyed: boolean = false;
     textureId: number = -1;
     sampleCount: number = 1;
 }
@@ -272,6 +279,7 @@ export class Texture extends TextureBase {
         this.texture.destroy();
         this.multiSampledRenderTexture?.destroy();
         this.multiSampledRenderTexture = null;
+        this.destroyed = true;
     }
 }
 
@@ -345,6 +353,7 @@ export class CanvasTexture extends TextureBase {
         // its lifetime is tied to the canvas context. We don't destroy it
         // here (would break ongoing presentation). The context itself is
         // managed by the canvas element.
+        this.destroyed = true;
     }
 }
 
@@ -404,6 +413,7 @@ export class DepthTexture extends TextureBase {
 
     destroy() {
         this.texture.destroy();
+        this.destroyed = true;
     }
 }
 
@@ -491,6 +501,7 @@ export class CubeTexture extends TextureBase {
 
     destroy() {
         this.texture.destroy();
+        this.destroyed = true;
     }
 }
 

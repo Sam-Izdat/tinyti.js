@@ -74,6 +74,21 @@ class SetImage {
             await this.renderTextureKernel(image);
         }
     }
+
+    private destroyed = false;
+    /**
+     * Release every GPU resource this helper owns: the fullscreen-quad vertex/
+     * index fields (each backed by its own SNodeTree) and the canvas render
+     * target texture. The compiled kernels stay in the program's kernel cache
+     * (they are program-scoped, not per-canvas). Idempotent.
+     */
+    destroy() {
+        if (this.destroyed) return;
+        this.destroyed = true;
+        try { this.VBO?.destroy(); } catch { /* already gone */ }
+        try { this.IBO?.destroy(); } catch { /* already gone */ }
+        try { this.renderTarget?.destroy(); } catch { /* already gone */ }
+    }
 }
 
 export { SetImage };

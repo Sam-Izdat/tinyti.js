@@ -11,6 +11,14 @@ class Canvas {
     async setImage(image: Field | Texture | DepthTexture) {
         await this.setImageObj.render(image);
     }
+    /**
+     * Release the GPU resources backing this canvas (vertex/index fields and
+     * the render-target texture). The canvas element itself and its WebGPU
+     * context remain owned by the caller/browser. Idempotent.
+     */
+    destroy() {
+        this.setImageObj.destroy();
+    }
 }
 
 export { Canvas };

@@ -1,6 +1,6 @@
 {
   "name": "tinyti.js",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Fork of taichi.js - Modern GPU Compute Framework in Javascript",
   "homepage": "",
   "repository": {
