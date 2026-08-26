@@ -22,6 +22,13 @@ export declare abstract class TextureBase {
      * canvas context is owned by the canvas and destroyed by the browser).
      */
     abstract destroy(): void;
+    /**
+     * Set to true by concrete destroy() implementations once the underlying
+     * GPU resources have been released. The JS object may still be referenced
+     * (e.g. by Runtime.textures) after destruction, so consumers walking the
+     * registry for memory accounting should skip destroyed entries.
+     */
+    destroyed: boolean;
     textureId: number;
     sampleCount: number;
 }

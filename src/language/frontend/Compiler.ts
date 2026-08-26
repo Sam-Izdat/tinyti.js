@@ -65,6 +65,12 @@ enum LoopKind {
 type SymbolTable = Map<ts.Symbol, Value>;
 
 class CompilingVisitor extends ASTVisitor<Value> {
+    // LOUD-FAILURE GUARD (ilmato Issue #2): reassigning a traced function's
+    // own parameter aliases the caller-side Value and silently corrupts it
+    // for every subsequent read. InliningCompiler registers the param
+    // symbols it binds; visitBinaryExpression rejects assignments to them.
+    protected tracedParamSymbols: Set<ts.Symbol> = new Set();
+    protected tracedParamFuncLabel: string = '(unknown)';
     constructor(
         protected irBuilder: IRBuilder,
         protected builtinOps: Map<string, BuiltinOp>,
@@ -336,6 +342,21 @@ class CompilingVisitor extends ASTVisitor<Value> {
     }
 
     protected override visitBinaryExpression(node: ts.BinaryExpression): VisitorResult<Value> {
+        // LOUD-FAILURE GUARD: reject parameter reassignment before it can
+        // silently alias the caller's value (ilmato Issue #2).
+        if (
+            node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+            node.left.kind === ts.SyntaxKind.Identifier &&
+            this.hasNodeSymbol(node.left)
+        ) {
+            const sym = this.getNodeSymbol(node.left);
+            if (this.tracedParamSymbols.has(sym)) {
+                this.errorNode(
+                    node,
+                    `tinyti: reassigning traced-function parameter '${node.left.getText()}' in ${this.tracedParamFuncLabel} is unsupported - the assignment aliases the caller's value and miscompiles downstream reads. Use a fresh local instead (e.g. const won = -tm.normalize(wo)).`
+                );
+            }
+        }
         let left = this.extractVisitorResult(this.dispatchVisit(node.left));
         let right = this.extractVisitorResult(this.dispatchVisit(node.right));
         let leftType = left.getType();
@@ -2196,10 +2217,17 @@ export class InliningCompiler extends CompilingVisitor {
             `ti.func ${this.funcName} called with incorrect amount of variables`
         );
         for (let i = 0; i < args.length; ++i) {
-            let val = this.argValues[i];
             let symbol = this.getNodeSymbol(args[i].name);
-            this.symbolTable.set(symbol, val);
+            this.tracedParamSymbols.add(symbol);   // LOUD-FAILURE GUARD target set
+            this.symbolTable.set(symbol, this.argValues[i]);
         }
+
+        // Label for the reassignment guard's error message.
+        try {
+            const decl = args[0]?.parent as ts.FunctionLikeDeclaration | undefined;
+            const nm = (decl?.name && ts.isIdentifier(decl.name)) ? decl.name.text : this.funcName;
+            this.tracedParamFuncLabel = `ti.func ${nm ?? '(anonymous)'}`;
+        } catch { this.tracedParamFuncLabel = 'ti.func'; }
     }
 
     protected override visitReturnStatement(node: ts.ReturnStatement): VisitorResult<Value> {
@@ -2211,8 +2239,10 @@ export class InliningCompiler extends CompilingVisitor {
         }
         if (node.expression) {
             this.returnValue = this.derefIfPointer(this.extractVisitorResult(this.dispatchVisit(node.expression)));
+            this.irBuilder.create_return_vec(this.returnValue.stmts.slice());
         } else {
             this.returnValue = new Value(new VoidType());
+            this.irBuilder.create_return_vec(this.returnValue.stmts);
         }
     }
 

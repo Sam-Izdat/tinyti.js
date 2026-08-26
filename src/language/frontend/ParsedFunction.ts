@@ -81,7 +81,7 @@ export class ParsedFunction {
             this.functionNode = node;
             this.registerArguments((node as ts.ArrowFunction).parameters);
         } else {
-            this.errorNode(node, 'Expecting a function or an arrow function in kernel/function');
+            this.errorNode(node, 'Expecting a function or an arrow function in kernel/function [DEBUG-ILMATO nodeKind=' + (node ? ts.SyntaxKind[node.kind] : 'null') + ' text=' + (node ? JSON.stringify(node.getText().slice(0, 200)) : 'none') + ']');
         }
     }
 

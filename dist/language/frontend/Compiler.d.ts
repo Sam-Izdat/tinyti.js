@@ -20,6 +20,8 @@ declare class CompilingVisitor extends ASTVisitor<Value> {
     protected irBuilder: IRBuilder;
     protected builtinOps: Map<string, BuiltinOp>;
     protected atomicOps: Map<string, BuiltinAtomicOp>;
+    protected tracedParamSymbols: Set<ts.Symbol>;
+    protected tracedParamFuncLabel: string;
     constructor(irBuilder: IRBuilder, builtinOps: Map<string, BuiltinOp>, atomicOps: Map<string, BuiltinAtomicOp>);
     protected kernelScope: Scope;
     protected templatedValues: Scope;
