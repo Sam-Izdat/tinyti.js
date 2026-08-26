@@ -341,6 +341,30 @@ class CompilingVisitor extends ASTVisitor<Value> {
         return op!.apply([val]);
     }
 
+    // LOUD-FAILURE GUARD: self-referential parameter reassignment
+    // (wo = -f(wo)) is the versioning-corruption pattern (AGENTS.md tinyti
+    // constraint #10). Non-self-referential writes merely alias the
+    // caller's variable - harmless when the caller does not re-read the
+    // argument (e.g. gamutTransform's r = inv * x0) - and stay legal.
+    protected selfReferentialParamAssign(node: ts.BinaryExpression): ts.Symbol | null {
+        if (!(node.operatorToken.kind === ts.SyntaxKind.EqualsToken)) return null;
+        if (!(node.left.kind === ts.SyntaxKind.Identifier)) return null;
+        if (!this.hasNodeSymbol(node.left)) return null;
+        const sym = this.getNodeSymbol(node.left);
+        if (!this.tracedParamSymbols.has(sym)) return null;
+        const walk = (n: ts.Node): boolean => {
+            if (ts.isIdentifier(n)) {
+                try { return this.hasNodeSymbol(n) && this.getNodeSymbol(n) === sym; }
+                catch { return false; }
+            }
+            for (const child of n.getChildren()) {
+                if (walk(child)) return true;
+            }
+            return false;
+        };
+        return walk(node.right) ? sym : null;
+    }
+
     protected override visitBinaryExpression(node: ts.BinaryExpression): VisitorResult<Value> {
         // LOUD-FAILURE GUARD: reject parameter reassignment before it can
         // silently alias the caller's value (ilmato Issue #2).
@@ -349,8 +373,8 @@ class CompilingVisitor extends ASTVisitor<Value> {
             node.left.kind === ts.SyntaxKind.Identifier &&
             this.hasNodeSymbol(node.left)
         ) {
-            const sym = this.getNodeSymbol(node.left);
-            if (this.tracedParamSymbols.has(sym)) {
+            const sym = this.selfReferentialParamAssign(node);
+            if (sym !== null) {
                 this.errorNode(
                     node,
                     `tinyti: reassigning traced-function parameter '${node.left.getText()}' in ${this.tracedParamFuncLabel} is unsupported - the assignment aliases the caller's value and miscompiles downstream reads. Use a fresh local instead (e.g. const won = -tm.normalize(wo)).`
@@ -2239,10 +2263,8 @@ export class InliningCompiler extends CompilingVisitor {
         }
         if (node.expression) {
             this.returnValue = this.derefIfPointer(this.extractVisitorResult(this.dispatchVisit(node.expression)));
-            this.irBuilder.create_return_vec(this.returnValue.stmts.slice());
         } else {
             this.returnValue = new Value(new VoidType());
-            this.irBuilder.create_return_vec(this.returnValue.stmts);
         }
     }
 

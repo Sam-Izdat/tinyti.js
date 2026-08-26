@@ -56,6 +56,7 @@ declare class CompilingVisitor extends ASTVisitor<Value> {
     protected castTo(val: Value, primType: PrimitiveType): Value;
     protected visitNumericLiteral(node: ts.NumericLiteral): VisitorResult<Value>;
     protected visitPrefixUnaryExpression(node: ts.PrefixUnaryExpression): VisitorResult<Value>;
+    protected selfReferentialParamAssign(node: ts.BinaryExpression): ts.Symbol | null;
     protected visitBinaryExpression(node: ts.BinaryExpression): VisitorResult<Value>;
     protected visitArrayLiteralExpression(node: ts.ArrayLiteralExpression): VisitorResult<Value>;
     protected visitObjectLiteralExpression(node: ts.ObjectLiteralExpression): VisitorResult<Value>;

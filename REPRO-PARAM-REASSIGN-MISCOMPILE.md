@@ -63,3 +63,24 @@ ilmato tests/gpu_harness CASES.zzz_specgrid + CASES.zzz_issue2
 - Proper param-SSA fix remains OPEN and is judged feasible but requires
   dedicated investigation of inline-expansion value/versioning; use the
   ilmato framesweep/specgrid harness cases as regression oracle.
+
+## RESOLUTION 2026-08-26 (guard v2 shipped)
+
+- The "HEAD regression breaking ilmato scenes" was NOT a runtime bug: the
+  loud-error guard commit (9607c06) had accidentally swept in an extra
+  `create_return_vec` emission inside InliningCompiler.visitReturnStatement,
+  double-emitting returns for every traced function -> corrupted IR ->
+  `array<i32, 0>` WGSL -> InvalidShaderModule cascades. Removing the two
+  stray lines restored 18/18 immediately. Lesson: one commit = one concern;
+  the bisect that exonerated d8c9128 took minutes once the delta was
+  actually diffed.
+- Guard v2 (this commit): fires ONLY on SELF-REFERENTIAL parameter
+  reassignment (RHS mentions the parameter - the wo = -f(wo)
+  versioning-corruption pattern, AGENTS.md tinyti constraint #10).
+  Non-self-referential param writes (gamutTransform's r = inv * x0) stay
+  legal: they alias the caller's variable, which is harmless when the
+  caller does not re-read the argument.
+- Contract-tested by ilmato harness case `guard_param_reassign`:
+  self-ref throws the actionable loud error; non-self-ref compiles and
+  computes correctly. Full ilmato suite 19/19 with the guard active.
+- Version 0.1.5.
