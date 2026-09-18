@@ -381,14 +381,23 @@ class Runtime {
                     buffer = this.randStatesBuffer!;
                     break;
                 }
-                case ResourceType.StorageTexture:
+                case ResourceType.StorageTexture: {
+                    // WGSL storage views must address exactly one mip. A store
+                    // with no explicit lod targets mip 0; binding the full
+                    // pyramid view here fails validation on multi-mip textures
+                    // ("mipLevelCount (N) ... expected to be 1"). ilmato hit
+                    // this filling procedural staging textures (2026-09-18).
+                    const lod = binding.info.levelID >= 0 ? binding.info.levelID : 0;
+                    texture = this.textures[binding.info.resourceID!].getGPUTextureViewLod(lod);
+                    break;
+                }
                 case ResourceType.Texture: {
                     if (binding.info.levelID >= 0) {
                         texture = this.textures[binding.info.resourceID!].getGPUTextureViewLod(binding.info.levelID);
                     } else {
                         texture = this.textures[binding.info.resourceID!].getGPUTextureView();
                     }
-                    
+
                     break;
                 }
                 case ResourceType.Sampler: {

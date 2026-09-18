@@ -1333,7 +1333,15 @@ class CompilingVisitor extends ASTVisitor<Value> {
             let propText = prop.getText();
             // writing x.norm() and norm(x) are both ok
             // writing x.dot(y) and dot(x,y) are both ok
-            if (builtinOps.has(propText)) {
+            //
+            // ilmato 2026-09-18: a scope-resolvable callee (e.g. tm.min where
+            // tm is a kernel-scope namespace) must NOT take this builtin
+            // method-style path — it would visit the bare namespace object
+            // (a class) as a value and die stringifying it. Full-text scope
+            // eval succeeds for these, so let them fall through to normal
+            // callee resolution below. GPU-value/tmp method calls (x.min on
+            // locals) are unaffected: their full text is never scope-evaluable.
+            if (builtinOps.has(propText) && !this.canEvalInKernelScopeOrTemplateArgs(node.expression)) {
                 let op = builtinOps.get(propText)!;
                 let objValue = this.derefIfPointer(this.extractVisitorResult(this.dispatchVisit(obj)));
                 let allArgumentValues = [objValue].concat(getArgumentValues());
@@ -1461,6 +1469,7 @@ class CompilingVisitor extends ASTVisitor<Value> {
     protected override visitPropertyAccessExpression(node: ts.PropertyAccessExpression): VisitorResult<Value> {
         if (this.canEvalInKernelScopeOrTemplateArgs(node)) {
             let hostResult = this.tryEvalInKernelScopeOrTemplateArgs(node);
+            this.debugAssertTraceableHostValue(hostResult, node, 'property');
             let value = this.getValueFromAnyHostValue(hostResult);
             return value;
         }
@@ -1535,6 +1544,7 @@ class CompilingVisitor extends ASTVisitor<Value> {
         } else if (objRef.getType().getCategory() === TypeCategory.HostObjectReference) {
             let objHostValue = objRef.hostSideValue;
             if (typeof objHostValue === 'object' && objHostValue && propText in objHostValue) {
+                this.debugAssertTraceableHostValue(objHostValue[propText], node, 'host-prop');
                 return this.getValueFromAnyHostValue(objHostValue[propText]);
             }
         }
@@ -1623,6 +1633,35 @@ class CompilingVisitor extends ASTVisitor<Value> {
         return maybeValue;
     }
 
+    // ilmato-debug (2026-09-18): when a bare identifier resolves to a JS
+    // class, the old code fell through to val.toString() ("class tm {...}")
+    // and died in registerFunctionNode with no clue WHICH name did it.
+    // Fail here instead, naming the identifier — classes are never traceable.
+    protected debugAssertTraceableHostValue(val: any, node: ts.Node, where: string) {
+        if (typeof val === 'function') {
+            let src = '';
+            try {
+                src = val.toString();
+            } catch (e) {
+                src = '';
+            }
+            if (/^\s*class[\s{]/.test(src)) {
+                let stack = '';
+                try {
+                    stack = '\n' + (new Error().stack || '').split('\n').slice(1, 7).join('\n');
+                } catch (e) {
+                    stack = '';
+                }
+                this.errorNode(
+                    node,
+                    `ilmato-debug: '${node.getText()}' (${where}) resolved to class '${val.name}' — classes cannot be traced. ` +
+                        `A bare class reference reached the compiler (missing member access? scope-wiring issue?).` +
+                        stack
+                );
+            }
+        }
+    }
+
     protected override visitIdentifier(node: ts.Identifier): VisitorResult<Value> {
         if (this.hasNodeSymbol(node)) {
             let symbol = this.getNodeSymbol(node);
@@ -1632,6 +1671,7 @@ class CompilingVisitor extends ASTVisitor<Value> {
         }
         if (this.canEvalInKernelScopeOrTemplateArgs(node)) {
             let hostSideValue = this.tryEvalInKernelScopeOrTemplateArgs(node);
+            this.debugAssertTraceableHostValue(hostSideValue, node, 'identifier');
             let value = this.getValueFromAnyHostValue(hostSideValue);
             return value;
         }
