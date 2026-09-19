@@ -58,6 +58,17 @@ class Runtime {
 
         const device = await adapter!.requestDevice({
             requiredFeatures,
+            // ilmato 2026-09-19: large scenes (sponza-class) exceed the 128MB
+            // default maxStorageBufferBindingSize (a 24-texture field arena
+            // is ~216MB) and can exceed the 256MB default maxBufferSize.
+            // Request the adapter max for both — always legal (min), never a
+            // regression on weak adapters (they just report lower).
+            // `as any`: the vendored TS lib predates these limit names.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            requiredLimits: {
+                maxStorageBufferBindingSize: (adapter!.limits as any).maxStorageBufferBindingSize,
+                maxBufferSize: (adapter!.limits as any).maxBufferSize,
+            },
         });
         if (!device) {
             alertWebGPUError();
