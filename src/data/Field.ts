@@ -49,6 +49,49 @@ export class Field {
         return copy.intArray;
     }
 
+    /**
+     * Raw-buffer one-shot host->device upload. Skips BOTH JS number-array
+     * stages the fromArray1D path pays (values: number[] allocation, then
+     * Float32Array.from) — hands hostToDevice the incoming Float32Array's
+     * buffer as an Int32Array view directly, so upload cost is one memcpy
+     * into mapped staging. The write-side twin of toFloat32Array().
+     */
+    async fromFloat32Array(data: Float32Array, offsetBytes: number = 0) {
+        this.ensureMaterialized();
+        if (!TypeUtils.isTensorType(this.elementType)) {
+            error('fromFloat32Array can only be used for scalar/vector/matrix fields');
+            return;
+        }
+        if (data.byteLength + offsetBytes > this.sizeBytes) {
+            error(`fromFloat32Array: ${data.byteLength}B + offset ${offsetBytes}B exceeds field size ${this.sizeBytes}B`);
+        }
+        let intArray = new Int32Array(data.buffer, data.byteOffset, data.byteLength >> 2);
+        await Program.getCurrentProgram().runtime!.hostToDevice(this, intArray, offsetBytes);
+    }
+
+    /**
+     * Fire-and-forget fromFloat32Array: submits the staging copy but does
+     * NOT await onSubmittedWorkDone, so a pipeline of per-level uploads can
+     * run ahead of the GPU (one final ti.sync at the sink call instead of
+     * one per level). SAFE ONLY for fields the caller never re-writes until
+     * after a later global sync — reuse of the same field (hostToDevice
+     * staging overwrite while an earlier copy reads it) needs the awaited
+     * variant. The write is ordered on the same queue, so fusing the drain
+     * tail's sync is correct.
+     */
+    async fromFloat32ArrayAsync(data: Float32Array, offsetBytes: number = 0) {
+        this.ensureMaterialized();
+        if (!TypeUtils.isTensorType(this.elementType)) {
+            error('fromFloat32ArrayAsync can only be used for scalar/vector/matrix fields');
+            return;
+        }
+        if (data.byteLength + offsetBytes > this.sizeBytes) {
+            error(`fromFloat32ArrayAsync: ${data.byteLength}B + offset ${offsetBytes}B exceeds field size ${this.sizeBytes}B`);
+        }
+        let intArray = new Int32Array(data.buffer, data.byteOffset, data.byteLength >> 2);
+        Program.getCurrentProgram().runtime!.hostToDeviceAsync(this, intArray, offsetBytes);
+    }
+
     private ensureMaterialized() {
         Program.getCurrentProgram().materializeCurrentTree();
     }

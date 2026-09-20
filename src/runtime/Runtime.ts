@@ -638,6 +638,37 @@ class Runtime {
 
         rootBufferCopy.destroy();
     }
+    /**
+     * hostToDevice without the trailing onSubmittedWorkDone await — the
+     * staging copy is enqueued in-order and the caller's later global sync
+     * guarantees it landed. Assumes a dedicated staging buffer per call
+     * (reuse would race the earlier copy); Field.fromFloat32ArrayAsync wraps
+     * this for that contract.
+     */
+    async hostToDeviceAsync(field: Field, hostArray: Int32Array, offsetBytes: number = 0, transferBytes: number | null = null) {
+        transferBytes = transferBytes ?? hostArray.byteLength;
+
+        const rootBufferCopy = this.device!.createBuffer({
+            size: transferBytes,
+            usage: GPUBufferUsage.COPY_SRC | GPUBufferUsage.MAP_WRITE,
+            mappedAtCreation: true,
+        });
+
+        new Int32Array(rootBufferCopy.getMappedRange()).set(hostArray);
+        rootBufferCopy.unmap();
+
+        let commandEncoder = this.device!.createCommandEncoder();
+        commandEncoder.copyBufferToBuffer(
+            rootBufferCopy,
+            0,
+            this.materializedTrees[field.snodeTree.treeId].rootBuffer!,
+            field.offsetBytes + offsetBytes,
+            transferBytes
+        );
+
+        this.device!.queue.submit([commandEncoder.finish()]);
+        rootBufferCopy.destroy();
+    }
     getRootBuffer(treeId: number): GPUBuffer {
         return this.materializedTrees[treeId].rootBuffer!;
     }

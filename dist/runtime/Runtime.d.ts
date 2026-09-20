@@ -35,6 +35,14 @@ declare class Runtime {
     deviceToHost(field: Field, offsetBytes?: number, sizeBytes?: number): Promise<FieldHostSideCopy>;
     deviceToHostMultiple(fields: Field[]): Promise<FieldHostSideCopy[]>;
     hostToDevice(field: Field, hostArray: Int32Array, offsetBytes?: number, transferBytes?: number | null): Promise<void>;
+    /**
+     * hostToDevice without the trailing onSubmittedWorkDone await — the
+     * staging copy is enqueued in-order and the caller's later global sync
+     * guarantees it landed. Assumes a dedicated staging buffer per call
+     * (reuse would race the earlier copy); Field.fromFloat32ArrayAsync wraps
+     * this for that contract.
+     */
+    hostToDeviceAsync(field: Field, hostArray: Int32Array, offsetBytes?: number, transferBytes?: number | null): Promise<void>;
     getRootBuffer(treeId: number): GPUBuffer;
     copyImageBitmapToTexture(bitmap: ImageBitmap, texture: GPUTexture): Promise<void>;
     copyImageBitmapsToCubeTexture(bitmaps: ImageBitmap[], texture: GPUTexture): Promise<void>;

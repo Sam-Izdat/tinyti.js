@@ -43,3 +43,14 @@ let [pos, vel, density] = await ti.toArrays([posField, velField, densityField]);
 ```
 
 This merges the buffer copy commands into a single GPU command queue submission and executes the `mapAsync` calls concurrently using `Promise.all`.
+
+## Upload Performance
+
+Host→device field upload (`fromArray`, `fromArray1D`) pays two JS-side costs before the GPU copy: building a `number[]` and converting it with `Float32Array.from`. For callers staging large buffers (texture chains, arena uploads), two new `Field` methods hand the runtime a typed array directly:
+
+| Method | Behavior | Use case |
+|---|---|---|
+| `field.fromFloat32Array(data, offsetBytes?)` | Raw-buffer upload; awaits work-done | One-shot bulk upload with no JS array round-trip |
+| `field.fromFloat32ArrayAsync(data, offsetBytes?)` | Same staging copy, fire-and-forget (no `onSubmittedWorkDone` await) | Upload pipelines that fence once at the sink (`ti.sync`) instead of per upload |
+
+`fromFloat32ArrayAsync` is safe only for fields the caller never re-writes before the later global sync (it allocates a dedicated staging buffer per call; reusing the field early races the in-flight copy). Both wrap `Runtime.hostToDevice[Async]`.
