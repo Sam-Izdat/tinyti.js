@@ -106,7 +106,7 @@ export declare class TextureArray extends TextureBase {
     getTextureDimensionality(): TextureDimensionality;
     getMipLevelCount(): number;
     getGPUSampler(): GPUSampler | null;
-    generateMipmaps(): boolean;
+    generateMipmaps(filter?: string): boolean;
     destroy(): void;
 }
 export declare class CanvasTexture extends TextureBase {

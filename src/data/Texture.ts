@@ -409,10 +409,22 @@ export class TextureArray extends TextureBase {
         return this.sampler;
     }
 
-    generateMipmaps(): boolean {
-        // No auto-mipgen for arrays (single-pass downsampler is 2D-only);
-        // layers carry explicit mip chains via kernel stores.
-        return false;
+    generateMipmaps(filter: string = 'average'): boolean {
+        // In-place single-pass downsample: the vendored SPD core iterates
+        // array layers itself (2d-array views with baseArrayLayer strides),
+        // so one call covers every layer. Fallback path only — the primary
+        // premium-tier upload is explicit per-mip stores from the RAM
+        // pyramid (authored Kaiser quality, parity with the bulk tier).
+        let filterID = SPDFilters.Average;
+        if (filter == 'max') {
+            filterID = SPDFilters.Max;
+        } else if (filter == 'min') {
+            filterID = SPDFilters.Min;
+        } else if (filter == 'minmax') {
+            filterID = SPDFilters.MinMax;
+        }
+        downsampler.generateMipmaps(Program.getCurrentProgram().runtime!.device!, this.texture, { filter: filterID });
+        return true;
     }
 
     destroy() {
