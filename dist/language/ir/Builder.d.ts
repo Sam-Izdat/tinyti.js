@@ -48,6 +48,9 @@ export declare class IRBuilder {
     create_texture_load_lod(texture: TextureBase, coords: Stmt[], lod: Stmt): TextureFunctionStmt;
     create_texture_store(texture: TextureBase, coords: Stmt[], vals: Stmt[]): TextureFunctionStmt;
     create_texture_store_lod(texture: TextureBase, coords: Stmt[], vals: Stmt[], lod: Stmt): TextureFunctionStmt;
+    create_texture_sample_array_lod(texture: TextureBase, coords: Stmt[], layer: Stmt, lod: Stmt): TextureFunctionStmt;
+    create_texture_load_array_lod(texture: TextureBase, coords: Stmt[], layer: Stmt, lod: Stmt): TextureFunctionStmt;
+    create_texture_store_array_lod(texture: TextureBase, coords: Stmt[], layer: Stmt, vals: Stmt[], lod: Stmt): TextureFunctionStmt;
     create_composite_extract(composite: Stmt, index: number): CompositeExtractStmt;
     create_vertex_index_input(): BuiltInInputStmt;
     create_instance_index_input(): BuiltInInputStmt;

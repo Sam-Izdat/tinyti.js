@@ -6,6 +6,7 @@ export enum TextureDimensionality {
     Dim2d,
     Dim3d,
     DimCube,
+    Dim2dArray,
 }
 
 const downsampler = new WebGPUSinglePassDownsampler(null);
@@ -13,6 +14,11 @@ const downsampler = new WebGPUSinglePassDownsampler(null);
 export function getTextureCoordsNumComponents(dim: TextureDimensionality): number {
     switch (dim) {
         case TextureDimensionality.Dim2d: {
+            return 2;
+        }
+        case TextureDimensionality.Dim2dArray: {
+            // uv stays a vec2; the layer rides a separate scalar operand
+            // (WGSL textureSampleLevel(t, s, uv, layer, lod) form).
             return 2;
         }
         case TextureDimensionality.DimCube: {
@@ -283,6 +289,138 @@ export class Texture extends TextureBase {
     }
 }
 
+// 2D texture array (ilmato premium tier, tinyti 0.1.9): ONE binding for N
+// same-size layers — no atlas gutters, no per-texture bindings. All layers
+// share dims/format/mips; each layer is an independent mip chain.
+// Uploads are explicit per-(layer, lod) kernel stores
+// (textureStoreArrayLod); sampling is explicit-LOD
+// (textureSampleArrayLod) so residency clamping stays host-driven.
+// Multisampling and auto-mipgen are v1 out of scope (asserted).
+export class TextureArray extends TextureBase {
+    constructor(
+        public numComponents: number,
+        public width: number,
+        public height: number,
+        public layers: number,
+        sampleCount: number = 1,
+        sampler?: Sampler | null,
+        mipLevelCount: number = 1,
+        dtype: TextureDataType = TextureDataType.float16,
+    ) {
+        super();
+        assert(Number.isInteger(width) && width > 0, 'array width must be a positive int');
+        assert(Number.isInteger(height) && height > 0, 'array height must be a positive int');
+        assert(Number.isInteger(layers) && layers > 0, 'array layer count must be a positive int');
+        assert(sampleCount === 1, 'multisampled texture arrays not supported yet');
+        assert(
+            numComponents === 1 || numComponents === 2 || numComponents === 4,
+            'texture component count must be 1, 2, or 4'
+        );
+        this.sampleCount = sampleCount;
+        this.mipLevelCount = mipLevelCount;
+        this.dtype = dtype;
+        this.dimensions = [width, height];
+
+        this.texture = Program.getCurrentProgram().runtime!.createGPUTexture(
+            this.dimensions,
+            this.getTextureDimensionality(),
+            this.getGPUTextureFormat(),
+            this.canUseAsRengerTarget(),
+            true,
+            1,
+            mipLevelCount,
+            layers
+        );
+        Program.getCurrentProgram().addTexture(this);
+        this.textureView = this.texture.createView({ dimension: '2d-array' });
+        this.mipLevelViews = [];
+        for (let i = 0; i < this.mipLevelCount; i++) {
+            this.mipLevelViews.push(this.texture.createView({
+                dimension: '2d-array',
+                baseMipLevel: i,
+                mipLevelCount: 1,
+            }));
+        }
+        this.sampler = sampler?.gpuSampler ?? null;
+    }
+
+    dimensions: number[];
+    private texture: GPUTexture;
+    private textureView: GPUTextureView;
+    private mipLevelViews: GPUTextureView[];
+    private sampler: GPUSampler | null = null;
+    private mipLevelCount: number;
+    private dtype: TextureDataType;
+
+    getGPUTextureFormat(): GPUTextureFormat {
+        if (this.dtype == TextureDataType.float16) {
+            switch (this.numComponents) {
+                case 1:
+                    return 'r16float';
+                case 2:
+                    return 'rg16float';
+                case 4:
+                    return 'rgba16float';
+                default:
+                    error('unsupported component count');
+                    return 'rgba16float';
+            }
+        } else if (this.dtype == TextureDataType.float32) {
+            switch (this.numComponents) {
+                case 1:
+                    return 'r32float';
+                case 2:
+                    return 'rg32float';
+                case 4:
+                    return 'rgba32float';
+                default:
+                    error('unsupported component count');
+                    return 'rgba32float';
+            }
+        }
+        return 'rgba16float';
+    }
+
+    canUseAsRengerTarget() {
+        return true;
+    }
+
+    getGPUTexture(): GPUTexture {
+        return this.texture;
+    }
+
+    getGPUTextureView(): GPUTextureView {
+        return this.textureView;
+    }
+
+    getGPUTextureViewLod(lod: number = 0): GPUTextureView {
+        return this.mipLevelViews[lod];
+    }
+
+    getTextureDimensionality(): TextureDimensionality {
+        return TextureDimensionality.Dim2dArray;
+    }
+
+    getMipLevelCount(): number {
+        return this.mipLevelCount;
+    }
+
+    getGPUSampler(): GPUSampler | null {
+        return this.sampler;
+    }
+
+    generateMipmaps(): boolean {
+        // No auto-mipgen for arrays (single-pass downsampler is 2D-only);
+        // layers carry explicit mip chains via kernel stores.
+        return false;
+    }
+
+    destroy() {
+        this.texture.destroy();
+        this.destroyed = true;
+    }
+}
+
 export class CanvasTexture extends TextureBase {
     constructor(public htmlCanvas: HTMLCanvasElement, sampleCount: number) {
         super();
@@ -506,5 +644,5 @@ export class CubeTexture extends TextureBase {
 }
 
 export function isTexture(x: any) {
-    return x instanceof Sampler || x instanceof Texture || x instanceof CanvasTexture || x instanceof DepthTexture || x instanceof CubeTexture;
+    return x instanceof Sampler || x instanceof Texture || x instanceof TextureArray || x instanceof CanvasTexture || x instanceof DepthTexture || x instanceof CubeTexture;
 }

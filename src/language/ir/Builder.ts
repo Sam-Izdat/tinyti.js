@@ -240,6 +240,27 @@ export class IRBuilder {
         );
     }
 
+    // 2D-array forms: layer rides FIRST in additionalOperands
+    // ([layer, lod] / [layer, lod, ...vals]) so the codegen can branch on
+    // dimensionality without new IR kinds.
+    create_texture_sample_array_lod(texture: TextureBase, coords: Stmt[], layer: Stmt, lod: Stmt) {
+        return this.pushNewStmt(
+            new TextureFunctionStmt(texture, TextureFunctionKind.SampleLod, coords, [layer, lod], this.getNewId())
+        );
+    }
+
+    create_texture_load_array_lod(texture: TextureBase, coords: Stmt[], layer: Stmt, lod: Stmt) {
+        return this.pushNewStmt(
+            new TextureFunctionStmt(texture, TextureFunctionKind.LoadLod, coords, [layer, lod], this.getNewId())
+        );
+    }
+
+    create_texture_store_array_lod(texture: TextureBase, coords: Stmt[], layer: Stmt, vals: Stmt[], lod: Stmt) {
+        return this.pushNewStmt(
+            new TextureFunctionStmt(texture, TextureFunctionKind.StoreLod, coords, [layer, lod, ...vals], this.getNewId())
+        );
+    }
+
     create_composite_extract(composite: Stmt, index: number) {
         return this.pushNewStmt(new CompositeExtractStmt(composite, index, this.getNewId()));
     }

@@ -286,6 +286,22 @@ export function textureStoreLod(texture: TextureBase, coords: any, val: any, lod
     throwNotImplementedError();
 }
 
+// 2D-array builtins (tinyti 0.1.9, ilmato premium tier): same semantics as
+// the 2D forms, plus a runtime i32 layer operand. The layer is dynamic per
+// thread (per-descriptor-row select); only the STORE lod stays a
+// trace-time constant (binding levelID, same restriction as StoreLod).
+export function textureSampleArrayLod(texture: TextureBase, coords: any, layer: number, lod: number): ti.types.vector {
+    throwNotImplementedError();
+    return [0.0, 0.0, 0.0, 0.0];
+}
+export function textureLoadArrayLod(texture: TextureBase, coords: any, layer: number, lod: number): ti.types.vector {
+    throwNotImplementedError();
+    return [0.0, 0.0, 0.0, 0.0];
+}
+export function textureStoreArrayLod(texture: TextureBase, coords: any, layer: number, val: any, lod: number) {
+    throwNotImplementedError();
+}
+
 export function getVertexIndex(): number {
     throwNotImplementedError();
     return 0;

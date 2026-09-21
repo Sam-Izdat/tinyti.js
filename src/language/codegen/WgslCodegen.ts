@@ -502,7 +502,11 @@ export class CodegenVisitor extends IRVisitor {
             case TextureFunctionKind.StoreLod: {
                 requiresSampler = false;
                 textureResource.resourceType = ResourceType.StorageTexture;
-                textureResource.levelID = stmt.getAdditionalOperands()[0].getVal();
+                // Array stores pack [layer, lod, ...vals]; 2D stores [lod, ...vals].
+                let lodOperand = texture.getTextureDimensionality() === TextureDimensionality.Dim2dArray
+                    ? stmt.getAdditionalOperands()[1]
+                    : stmt.getAdditionalOperands()[0];
+                textureResource.levelID = lodOperand.getVal();
                 break;
             }
             default: {
@@ -525,6 +529,17 @@ export class CodegenVisitor extends IRVisitor {
         let coordsTypeName = this.getScalarOrVectorTypeName(coordsPrimType, coordsComponentCount);
 
         let coordsExpr = this.getScalarOrVectorExpr(stmt.getCoordinates(), coordsTypeName);
+        // 2D-array textures carry a runtime i32 layer as the FIRST additional
+        // operand ([layer, lod] / [layer, lod, ...vals]); 2D textures pack
+        // lod-first ([lod] / [lod, ...vals]).
+        let isArray = texture.getTextureDimensionality() === TextureDimensionality.Dim2dArray;
+        let layerExpr = isArray ? stmt.getAdditionalOperands()[0].getName() : '';
+        // vec2i texel coord for array load/store (WGSL 2d-array load/store
+        // take SPLIT coords + index — unlike texture_3d's single vec3i).
+        let coordsVec2Expr = '';
+        if (isArray) {
+            coordsVec2Expr = `vec2<i32>(${stmt.getCoordinates()[0].getName()}, ${stmt.getCoordinates()[1].getName()})`;
+        }
         switch (stmt.func) {
             case TextureFunctionKind.Sample: {
                 this.emitLet(stmt.getName(), texelTypeName);
@@ -532,13 +547,22 @@ export class CodegenVisitor extends IRVisitor {
                 break;
             }
             case TextureFunctionKind.SampleLod: {
-                assert(stmt.getAdditionalOperands().length === 1, 'expecting 1 lod value');
                 this.emitLet(stmt.getName(), texelTypeName);
-                this.body.write(
-                    `textureSampleLevel(${textureName}, ${samplerName}, ${coordsExpr}, ${stmt
-                        .getAdditionalOperands()[0]
-                        .getName()});\n`
-                );
+                if (isArray) {
+                    assert(stmt.getAdditionalOperands().length === 2, 'array sample expects [layer, lod]');
+                    this.body.write(
+                        `textureSampleLevel(${textureName}, ${samplerName}, ${coordsExpr}, ${layerExpr}, ${stmt
+                            .getAdditionalOperands()[1]
+                            .getName()});\n`
+                    );
+                } else {
+                    assert(stmt.getAdditionalOperands().length === 1, 'expecting 1 lod value');
+                    this.body.write(
+                        `textureSampleLevel(${textureName}, ${samplerName}, ${coordsExpr}, ${stmt
+                            .getAdditionalOperands()[0]
+                            .getName()});\n`
+                    );
+                }
                 break;
             }
             case TextureFunctionKind.SampleCompare: {
@@ -557,12 +581,21 @@ export class CodegenVisitor extends IRVisitor {
                 break;
             }
             case TextureFunctionKind.LoadLod: {
-                assert(stmt.getAdditionalOperands().length === 1, 'expecting 1 lod value');
                 this.emitLet(stmt.getName(), texelTypeName);
-                this.body.write(`textureLoad(${textureName}, ${coordsExpr},  ${stmt
+                if (isArray) {
+                    // Split form, like store: textureLoad(t, vec2i, i32, lod).
+                    assert(stmt.getAdditionalOperands().length === 2, 'array load expects [layer, lod]');
+                    this.body.write(`textureLoad(${textureName}, ${coordsVec2Expr}, ${layerExpr}, ${stmt
+                        .getAdditionalOperands()[1]
+                        .getName()});\n`
+                    );
+                } else {
+                    assert(stmt.getAdditionalOperands().length === 1, 'expecting 1 lod value');
+                    this.body.write(`textureLoad(${textureName}, ${coordsExpr},  ${stmt
                         .getAdditionalOperands()[0]
                         .getName()});\n`
-                );
+                    );
+                }
                 break;
             }
             case TextureFunctionKind.Store: {
@@ -573,10 +606,21 @@ export class CodegenVisitor extends IRVisitor {
                 break;
             }
             case TextureFunctionKind.StoreLod: {
-                let valuePrimType = stmt.getAdditionalOperands()[1].getReturnType();
-                let valueTypeName = this.getScalarOrVectorTypeName(valuePrimType, stmt.getAdditionalOperands().slice(1).length);
-                let valueExpr = this.getScalarOrVectorExpr(stmt.getAdditionalOperands().slice(1), valueTypeName);
-                this.body.write(this.getIndentation(), `textureStore(${textureName}, ${coordsExpr}, ${valueExpr});\n`);
+                // Array packs [layer, lod, ...vals]; 2D packs [lod, ...vals].
+                let valOperands = isArray
+                    ? stmt.getAdditionalOperands().slice(2)
+                    : stmt.getAdditionalOperands().slice(1);
+                let valuePrimType = valOperands[0].getReturnType();
+                let valueTypeName = this.getScalarOrVectorTypeName(valuePrimType, valOperands.length);
+                let valueExpr = this.getScalarOrVectorExpr(valOperands, valueTypeName);
+                if (isArray) {
+                    // 2d-array load/store take SPLIT coords + index
+                    // (textureStore(t, vec2i, i32, value) — only the
+                    // texture_3d forms take a single vec3i).
+                    this.body.write(this.getIndentation(), `textureStore(${textureName}, ${coordsVec2Expr}, ${layerExpr}, ${valueExpr});\n`);
+                } else {
+                    this.body.write(this.getIndentation(), `textureStore(${textureName}, ${coordsExpr}, ${valueExpr});\n`);
+                }
                 break;
             }
             default: {
@@ -1438,6 +1482,18 @@ var<${storageAndAcess}> ${name}: ${name}_type;
                     }
                 } else {
                     error('depth cube texture not supported');
+                }
+                break;
+            }
+            case TextureDimensionality.Dim2dArray: {
+                if (!isDepth) {
+                    if (isStorageTexture) {
+                        typeName = 'texture_storage_2d_array';
+                    } else {
+                        typeName = 'texture_2d_array';
+                    }
+                } else {
+                    error('depth 2d-array texture not supported');
                 }
                 break;
             }

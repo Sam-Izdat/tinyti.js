@@ -468,7 +468,8 @@ class Runtime {
         renderAttachment: boolean,
         requiresStorage: boolean,
         sampleCount: number,
-        mipLevelCount: number = 1
+        mipLevelCount: number = 1,
+        arrayLayers: number = 1
     ): GPUTexture {
         let getDescriptor = (): GPUTextureDescriptor => {
             let usage = GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC | GPUTextureUsage.TEXTURE_BINDING;
@@ -485,7 +486,7 @@ class Runtime {
                 };
             } else if (dimensions.length === 2) {
                 assert(
-                    dimensionality === TextureDimensionality.Dim2d || dimensionality === TextureDimensionality.DimCube
+                    dimensionality === TextureDimensionality.Dim2d || dimensionality === TextureDimensionality.DimCube || dimensionality === TextureDimensionality.Dim2dArray
                 );
                 if (renderAttachment) {
                     usage = usage | GPUTextureUsage.RENDER_ATTACHMENT;
@@ -493,6 +494,10 @@ class Runtime {
                 let size: GPUExtent3DStrict = { width: dimensions[0], height: dimensions[1] };
                 if (dimensionality === TextureDimensionality.DimCube) {
                     size.depthOrArrayLayers = 6;
+                }
+                if (dimensionality === TextureDimensionality.Dim2dArray) {
+                    assert(Number.isInteger(arrayLayers) && arrayLayers > 0, 'array texture needs a positive layer count');
+                    size.depthOrArrayLayers = arrayLayers;
                 }
                 return {
                     size: size,

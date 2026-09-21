@@ -19,7 +19,9 @@ import {
     getTextureCoordsNumComponents,
     isTexture,
     Texture,
+    TextureArray,
     TextureBase,
+    TextureDimensionality,
 } from '../../data/Texture';
 import { Program } from '../../program/Program';
 import { LibraryFunc } from './Library';
@@ -596,10 +598,13 @@ class CompilingVisitor extends ASTVisitor<Value> {
             'textureSample',
             'textureSampleCompare',
             'textureSampleLod',
+            'textureSampleArrayLod',
             'textureLoad',
             'textureLoadLod',
+            'textureLoadArrayLod',
             'textureStore',
             'textureStoreLod',
+            'textureStoreArrayLod',
             'getVertexIndex',
             'getInstanceIndex',
             'getFragCoord',
@@ -1170,6 +1175,153 @@ class CompilingVisitor extends ASTVisitor<Value> {
 
             let lod = argumentValues[3];
             this.irBuilder.create_texture_store_lod(texture, coords.stmts, value.stmts, lod.stmts[0]);
+            return;
+        }
+
+        if (this.isBuiltinFunctionWithName(funcText, 'textureSampleArrayLod')) {
+            this.assertNode(
+                node,
+                node.arguments.length === 4,
+                'textureSampleArrayLod() must have exactly 4 arguments: texture, uv (vec2f), layer (i32), lod (f32)'
+            );
+            this.assertNode(
+                node,
+                argumentValues[0].getType().getCategory() === TypeCategory.HostObjectReference &&
+                    argumentValues[0].hostSideValue instanceof TextureArray,
+                "the first argument of textureSampleArrayLod() must be a texture-array object that's visible in kernel scope"
+            );
+            let texture = argumentValues[0].hostSideValue as TextureArray;
+
+            let coords = argumentValues[1];
+            this.assertNode(node, coords.getType().getCategory() === TypeCategory.Vector, 'coords must be a vector');
+            let vecType = coords.getType() as VectorType;
+            this.assertNode(node, vecType.getNumRows() === 2, 'coords component count must be 2');
+            this.assertNode(node, vecType.getPrimitiveType() === PrimitiveType.f32, 'coords must be a f32 vector');
+
+            let layer = argumentValues[2];
+            this.assertNode(
+                node,
+                layer.getType().getCategory() === TypeCategory.Scalar &&
+                    TypeUtils.getPrimitiveType(layer.getType()) === PrimitiveType.i32,
+                'layer must be a scalar int'
+            );
+            let lod = argumentValues[3];
+            this.assertNode(
+                node,
+                lod.getType().getCategory() === TypeCategory.Scalar &&
+                    TypeUtils.getPrimitiveType(lod.getType()) === PrimitiveType.f32,
+                'lod must be a scalar float'
+            );
+
+            let sampleResultStmt = this.irBuilder.create_texture_sample_array_lod(
+                texture,
+                coords.stmts,
+                layer.stmts[0],
+                lod.stmts[0]
+            );
+
+            let resultType = new VectorType(PrimitiveType.f32, 4);
+            let result = new Value(resultType);
+            for (let i = 0; i < 4; ++i) {
+                result.stmts.push(this.irBuilder.create_composite_extract(sampleResultStmt, i));
+            }
+            return result;
+        }
+
+        if (this.isBuiltinFunctionWithName(funcText, 'textureLoadArrayLod')) {
+            this.assertNode(
+                node,
+                node.arguments.length === 4,
+                'textureLoadArrayLod() must have exactly 4 arguments: texture, xy (vec2i), layer (i32), lod (i32)'
+            );
+            this.assertNode(
+                node,
+                argumentValues[0].getType().getCategory() === TypeCategory.HostObjectReference &&
+                    argumentValues[0].hostSideValue instanceof TextureArray,
+                "the first argument of textureLoadArrayLod() must be a texture-array object that's visible in kernel scope"
+            );
+            let texture = argumentValues[0].hostSideValue as TextureArray;
+
+            let coords = argumentValues[1];
+            this.assertNode(node, coords.getType().getCategory() === TypeCategory.Vector, 'coords must be a vector');
+            let vecType = coords.getType() as VectorType;
+            this.assertNode(node, vecType.getNumRows() === 2, 'coords component count must be 2');
+            this.assertNode(node, vecType.getPrimitiveType() === PrimitiveType.i32, 'coords must be a i32 vector');
+
+            let layer = argumentValues[2];
+            this.assertNode(
+                node,
+                layer.getType().getCategory() === TypeCategory.Scalar &&
+                    TypeUtils.getPrimitiveType(layer.getType()) === PrimitiveType.i32,
+                'layer must be a scalar int'
+            );
+            let lod = argumentValues[3];
+            this.assertNode(
+                node,
+                lod.getType().getCategory() === TypeCategory.Scalar &&
+                    TypeUtils.getPrimitiveType(lod.getType()) === PrimitiveType.i32,
+                'lod must be a scalar int'
+            );
+            let sampleResultStmt = this.irBuilder.create_texture_load_array_lod(
+                texture,
+                coords.stmts.slice(),
+                layer.stmts[0],
+                lod.stmts[0]
+            );
+
+            let resultType = new VectorType(PrimitiveType.f32, 4);
+            let result = new Value(resultType);
+            for (let i = 0; i < 4; ++i) {
+                result.stmts.push(this.irBuilder.create_composite_extract(sampleResultStmt, i));
+            }
+            return result;
+        }
+
+        if (this.isBuiltinFunctionWithName(funcText, 'textureStoreArrayLod')) {
+            this.assertNode(
+                node,
+                node.arguments.length === 5,
+                'textureStoreArrayLod() must have exactly 5 arguments: texture, xy (vec2i), layer (i32), value (vec4f), lod'
+            );
+            this.assertNode(
+                node,
+                argumentValues[0].getType().getCategory() === TypeCategory.HostObjectReference &&
+                    argumentValues[0].hostSideValue instanceof TextureArray,
+                "the first argument of textureStoreArrayLod() must be a texture-array object that's visible in kernel scope"
+            );
+            let texture = argumentValues[0].hostSideValue as TextureArray;
+            this.assertNode(
+                node,
+                texture.numComponents === 4,
+                'textureStoreArrayLod() can only be used on textures with 4-component texels'
+            );
+
+            let coords = argumentValues[1];
+            this.assertNode(node, coords.getType().getCategory() === TypeCategory.Vector, 'coords must be a vector');
+            let coordsVecType = coords.getType() as VectorType;
+            this.assertNode(node, coordsVecType.getNumRows() === 2, 'coords component count must be 2');
+            this.assertNode(
+                node,
+                coordsVecType.getPrimitiveType() === PrimitiveType.i32,
+                'coords must be a i32 vector'
+            );
+
+            let layer = argumentValues[2];
+            this.assertNode(
+                node,
+                layer.getType().getCategory() === TypeCategory.Scalar &&
+                    TypeUtils.getPrimitiveType(layer.getType()) === PrimitiveType.i32,
+                'layer must be a scalar int'
+            );
+
+            let value = argumentValues[3];
+            this.assertNode(node, value.getType().getCategory() === TypeCategory.Vector, 'value must be a vector');
+            let valueVecType = value.getType() as VectorType;
+            this.assertNode(node, valueVecType.getNumRows() === 4, `value component count must be 4`);
+            this.assertNode(node, valueVecType.getPrimitiveType() === PrimitiveType.f32, 'value must be a f32 vector');
+
+            let lod = argumentValues[4];
+            this.irBuilder.create_texture_store_array_lod(texture, coords.stmts, layer.stmts[0], value.stmts, lod.stmts[0]);
             return;
         }
         if (this.isBuiltinFunctionWithName(funcText, 'getVertexIndex')) {

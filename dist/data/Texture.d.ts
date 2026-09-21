@@ -2,7 +2,8 @@
 export declare enum TextureDimensionality {
     Dim2d = 0,
     Dim3d = 1,
-    DimCube = 2
+    DimCube = 2,
+    Dim2dArray = 3
 }
 export declare function getTextureCoordsNumComponents(dim: TextureDimensionality): number;
 export declare abstract class TextureBase {
@@ -82,6 +83,30 @@ export declare class Texture extends TextureBase {
     static createFromBitmap(bitmap: ImageBitmap, sampleCount?: number, sampler?: Sampler, mipLevelCount?: number, dtype?: TextureDataType): Promise<Texture>;
     static createFromHtmlImage(image: HTMLImageElement, sampleCount?: number, sampler?: Sampler, mipLevelCount?: number, dtype?: TextureDataType): Promise<Texture>;
     static createFromURL(url: string, sampleCount?: number, sampler?: Sampler, mipLevelCount?: number, dtype?: TextureDataType): Promise<Texture>;
+    destroy(): void;
+}
+export declare class TextureArray extends TextureBase {
+    numComponents: number;
+    width: number;
+    height: number;
+    layers: number;
+    constructor(numComponents: number, width: number, height: number, layers: number, sampleCount?: number, sampler?: Sampler | null, mipLevelCount?: number, dtype?: TextureDataType);
+    dimensions: number[];
+    private texture;
+    private textureView;
+    private mipLevelViews;
+    private sampler;
+    private mipLevelCount;
+    private dtype;
+    getGPUTextureFormat(): GPUTextureFormat;
+    canUseAsRengerTarget(): boolean;
+    getGPUTexture(): GPUTexture;
+    getGPUTextureView(): GPUTextureView;
+    getGPUTextureViewLod(lod?: number): GPUTextureView;
+    getTextureDimensionality(): TextureDimensionality;
+    getMipLevelCount(): number;
+    getGPUSampler(): GPUSampler | null;
+    generateMipmaps(): boolean;
     destroy(): void;
 }
 export declare class CanvasTexture extends TextureBase {
