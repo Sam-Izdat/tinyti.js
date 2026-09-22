@@ -249,7 +249,7 @@ export function structToInt32Array(val: any, structType: StructType): Int32Array
     let result = new Int32Array(prims.length);
     for (let k of structType.getPropertyNames()) {
         if (val[k] === undefined) {
-            error('missing property: ', k);
+            error('missing property: ', k, ' on host object:', JSON.stringify(val).slice(0,300));
         }
         let offset = structType.getPropertyPrimitiveOffset(k);
         let propType = structType.getPropertyType(k);
