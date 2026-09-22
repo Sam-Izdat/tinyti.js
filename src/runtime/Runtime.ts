@@ -14,7 +14,7 @@ import { divUp, elementToInt32Array, int32ArrayToElement } from '../utils/Utils'
 import { assert, error } from '../utils/Logging';
 import { Field } from '../data/Field';
 import { TypeCategory } from '../language/frontend/Type';
-import { TextureBase, TextureDimensionality, TextureSamplingOptions } from '../data/Texture';
+import { TextureBase, TextureDimensionality, TextureSamplingOptions, isBlockCompressedFormat } from '../data/Texture';
 import { PipelineCache } from './PipelineCache';
 import { BufferPool, PooledBuffer } from './BufferPool';
 
@@ -54,6 +54,11 @@ class Runtime {
         const requiredFeatures: GPUFeatureName[] = [];
         if (adapter!.features.has('indirect-first-instance')) {
             requiredFeatures.push('indirect-first-instance');
+        }
+        // Block-compressed source textures (DDS ingestion): desktop-universal,
+        // but must be requested — unrequested, BC texture creation throws.
+        if (adapter!.features.has('texture-compression-bc')) {
+            requiredFeatures.push('texture-compression-bc');
         }
 
         const device = await adapter!.requestDevice({
@@ -476,6 +481,12 @@ class Runtime {
             if (requiresStorage) {
                 usage = usage | GPUTextureUsage.STORAGE_BINDING;
             }
+            // Block-compressed formats admit exactly COPY_DST |
+            // TEXTURE_BINDING — COPY_SRC, STORAGE, and RENDER_ATTACHMENT all
+            // fail validation (DDS ingestion hit this on BC1, 2026-09-22).
+            if (isBlockCompressedFormat(format)) {
+                usage = GPUTextureUsage.COPY_DST | GPUTextureUsage.TEXTURE_BINDING;
+            }
             if (dimensions.length === 1) {
                 error('1d texture not supported yet');
                 return {
@@ -488,7 +499,7 @@ class Runtime {
                 assert(
                     dimensionality === TextureDimensionality.Dim2d || dimensionality === TextureDimensionality.DimCube || dimensionality === TextureDimensionality.Dim2dArray
                 );
-                if (renderAttachment) {
+                if (renderAttachment && !isBlockCompressedFormat(format)) {
                     usage = usage | GPUTextureUsage.RENDER_ATTACHMENT;
                 }
                 let size: GPUExtent3DStrict = { width: dimensions[0], height: dimensions[1] };

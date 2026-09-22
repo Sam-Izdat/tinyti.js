@@ -44,8 +44,14 @@ export declare enum FilterMode {
 }
 export declare enum TextureDataType {
     float16 = 1,
-    float32 = 2
+    float32 = 2,
+    bc1 = 4,
+    bc2 = 8,
+    bc3 = 16,
+    bc7 = 32
 }
+export declare function bcFormatFor(dtype: TextureDataType): GPUTextureFormat | null;
+export declare function isBlockCompressedFormat(format: GPUTextureFormat): boolean;
 export interface TextureSamplingOptions {
     wrapModeU?: WrapMode;
     wrapModeV?: WrapMode;

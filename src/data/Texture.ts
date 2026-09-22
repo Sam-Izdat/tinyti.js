@@ -76,6 +76,46 @@ export enum FilterMode {
 export enum TextureDataType {
     float16 = 1,
     float32 = 2,
+    // Block-compressed source formats (DDS ingestion, issue ilmato#67):
+    // sampled-only (no STORAGE_BINDING — invalid on compressed), always
+    // 4-component RGBA. sRGB DDS variants decode as unorm (bytes as-is,
+    // matching the pipeline's scene-linear convention).
+    bc1 = 4,
+    bc2 = 8,
+    bc3 = 16,
+    bc7 = 32,
+}
+
+// wgsl format for a BC dtype, or null when not block-compressed.
+export function bcFormatFor(dtype: TextureDataType): GPUTextureFormat | null {
+    switch (dtype) {
+        case TextureDataType.bc1:
+            return 'bc1-rgba-unorm';
+        case TextureDataType.bc2:
+            return 'bc2-rgba-unorm';
+        case TextureDataType.bc3:
+            return 'bc3-rgba-unorm';
+        case TextureDataType.bc7:
+            return 'bc7-rgba-unorm';
+        default:
+            return null;
+    }
+}
+
+// Compressed formats admit a fixed usage set (COPY_DST | TEXTURE_BINDING)
+// — STORAGE, RENDER_ATTACHMENT, and COPY_SRC all fail validation.
+export function isBlockCompressedFormat(format: GPUTextureFormat): boolean {
+    return (
+        format.startsWith('bc1-') ||
+        format.startsWith('bc2-') ||
+        format.startsWith('bc3-') ||
+        format.startsWith('bc4-') ||
+        format.startsWith('bc5-') ||
+        format.startsWith('bc6h-') ||
+        format.startsWith('bc7-') ||
+        format.startsWith('etc2-') ||
+        format.startsWith('astc-')
+    );
 }
 
 export interface TextureSamplingOptions {
@@ -112,13 +152,20 @@ export class Texture extends TextureBase {
             numComponents === 1 || numComponents === 2 || numComponents === 4,
             'texture component count must be 1, 2, or 4'
         );
+        if (bcFormatFor(dtype) !== null) {
+            assert(sampleCount === 1, 'multisampled block-compressed textures not supported');
+            assert(numComponents === 4, 'block-compressed textures are always 4-component');
+        }
 
+        // Block-compressed formats admit no STORAGE_BINDING usage — request
+        // sampled-only, or device.createTexture throws at validation.
+        const wantStorage = bcFormatFor(dtype) === null;
         this.texture = Program.getCurrentProgram().runtime!.createGPUTexture(
             dimensions,
             this.getTextureDimensionality(),
             this.getGPUTextureFormat(),
             this.canUseAsRengerTarget(),
-            true,
+            wantStorage,
             1,
             mipLevelCount
         );
@@ -156,6 +203,8 @@ export class Texture extends TextureBase {
     private dtype: TextureDataType;
 
     getGPUTextureFormat(): GPUTextureFormat {
+        const bc = bcFormatFor(this.dtype);
+        if (bc !== null) return bc;
         if (this.dtype == TextureDataType.float16){
             switch (this.numComponents) {
                 // 32bit float types cannot be filtered (and thus sampled)
@@ -203,7 +252,10 @@ export class Texture extends TextureBase {
         return this.mipLevelViews[lod];
     }
 
-    generateMipmaps(filter: string = 'average') {
+     generateMipmaps(filter: string = 'average') {
+        // Block-compressed sources carry authored mip chains (DDS) — the
+        // single-pass downsampler doesn't take compressed formats.
+        if (bcFormatFor(this.dtype) !== null) return false;
         let filterID = SPDFilters.Average;
         if (filter == 'max'){
             filterID = SPDFilters.Max;
@@ -326,7 +378,7 @@ export class TextureArray extends TextureBase {
             this.getTextureDimensionality(),
             this.getGPUTextureFormat(),
             this.canUseAsRengerTarget(),
-            true,
+            bcFormatFor(dtype) === null,
             1,
             mipLevelCount,
             layers
@@ -352,7 +404,9 @@ export class TextureArray extends TextureBase {
     private mipLevelCount: number;
     private dtype: TextureDataType;
 
-    getGPUTextureFormat(): GPUTextureFormat {
+     getGPUTextureFormat(): GPUTextureFormat {
+        const bcArr = bcFormatFor(this.dtype);
+        if (bcArr !== null) return bcArr;
         if (this.dtype == TextureDataType.float16) {
             switch (this.numComponents) {
                 case 1:
@@ -410,6 +464,8 @@ export class TextureArray extends TextureBase {
     }
 
     generateMipmaps(filter: string = 'average'): boolean {
+        // Block-compressed sources carry authored mip chains — SPD stays out.
+        if (bcFormatFor(this.dtype) !== null) return false;
         // In-place single-pass downsample: the vendored SPD core iterates
         // array layers itself (2d-array views with baseArrayLayer strides),
         // so one call covers every layer. Fallback path only — the primary
