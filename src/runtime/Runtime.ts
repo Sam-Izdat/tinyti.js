@@ -73,6 +73,11 @@ class Runtime {
             requiredLimits: {
                 maxStorageBufferBindingSize: (adapter!.limits as any).maxStorageBufferBindingSize,
                 maxBufferSize: (adapter!.limits as any).maxBufferSize,
+                // ilmato 2026-09-24: array-pool layers exceed the 256 default
+                // maxTextureArrayLayers (bistro-class needs ~300/class).
+                // Request the adapter max — always legal (min), weak adapters
+                // just report lower (callers spill to constants, never black).
+                maxTextureArrayLayers: (adapter!.limits as any).maxTextureArrayLayers,
             },
         });
         if (!device) {
