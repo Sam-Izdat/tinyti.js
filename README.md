@@ -55,6 +55,17 @@ Host→device field upload (`fromArray`, `fromArray1D`) pays two JS-side costs b
 
 `fromFloat32ArrayAsync` is safe only for fields the caller never re-writes before the later global sync (it allocates a dedicated staging buffer per call; reusing the field early races the in-flight copy). Both wrap `Runtime.hostToDevice[Async]`.
 
+### Scoped Uploads (0.1.13)
+
+For buffers where a few rows change per frame (descriptor tables), full re-uploads pay the whole conversion + fence every time. Two offset writes cover the scoped path:
+
+| Method | Behavior | Use case |
+|---|---|---|
+| `field.fromArray1D(values, offsetBytes?)` | Tensor upload starting at a byte offset (`Int32Array` input skips a copy on i32 fields) | Partial i32/f32 table uploads |
+| `field.fromRows(rows, startIndex)` | Converts + uploads a contiguous run of top-level struct rows | Descriptor-row updates without rebuilding the field |
+
+`fromRows` validates the range against the field dimensions and the row nesting depth; per-row conversion enforces shape after that, same as `fromArray`.
+
 ## Texture Uploads (0.1.11)
 
 Buffer-source texture upload (`Runtime.uploadBufferToTexture`, also exposed as `texture.uploadBytes(...)` on any `TextureBase`) stages host bytes into a pooled, grown-only two-buffer staging ring and issues a 256-aligned `copyBufferToTexture`. No per-call device buffer allocation, so it is safe in per-mip decode/stream storms.
