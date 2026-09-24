@@ -139,22 +139,73 @@ export class Field {
         return toElement(copy.intArray, copy.floatArray, this.elementType);
     }
 
-    async fromArray1D(values: number[]) {
+    async fromArray1D(values: number[] | Int32Array, offsetBytes: number = 0) {
         assert(
             TypeUtils.isTensorType(this.elementType),
             'fromArray1D can only be used on fields of scalar/vector/matrix types'
         );
         this.ensureMaterialized();
-        assert(values.length * 4 === this.sizeBytes, 'size mismatch');
+        // Full upload keeps the historical exact-size check; scoped
+        // uploads (any offset, including 0 for leading rows) must fit
+        // inside the field. Int32Array input skips a copy on i32 fields.
+        if (offsetBytes === 0 && values.length * 4 === this.sizeBytes) {
+            // full upload — nothing more to check
+        } else {
+            assert(offsetBytes + values.length * 4 <= this.sizeBytes, 'scoped upload out of bounds');
+        }
 
         if (TypeUtils.getPrimitiveType(this.elementType) === PrimitiveType.i32) {
-            let intArray = Int32Array.from(values);
-            await Program.getCurrentProgram().runtime!.hostToDevice(this, intArray);
+            let intArray = values instanceof Int32Array ? values : Int32Array.from(values);
+            await Program.getCurrentProgram().runtime!.hostToDevice(this, intArray, offsetBytes);
         } else {
-            let floatArray = Float32Array.from(values);
+            // Numeric conversion either way (Int32Array input converts
+            // int->float per element, never reinterprets bits).
+            let floatArray = Float32Array.from(values as any);
             let intArray = new Int32Array(floatArray.buffer);
-            await Program.getCurrentProgram().runtime!.hostToDevice(this, intArray);
+            await Program.getCurrentProgram().runtime!.hostToDevice(this, intArray, offsetBytes);
         }
+    }
+
+    /**
+     * Row-scoped struct-field write (ilmato #93): converts + uploads a
+     * contiguous run of top-level rows starting at startIndex, instead of
+     * the whole field. Same per-row conversion as fromArray, but only over
+     * the slice — the fix for per-tick full re-uploads of descriptor
+     * buffers where 1–2 rows change. offsetBytes covers the preceding rows.
+     */
+    async fromRows(values: any[], startIndex: number) {
+        this.ensureMaterialized();
+        assert(Array.isArray(values) && values.length > 0, 'fromRows needs a non-empty row array');
+        assert(Number.isInteger(startIndex) && startIndex >= 0, 'fromRows needs a valid startIndex');
+        assert(
+            startIndex + values.length <= this.dimensions[0],
+            'fromRows range out of bounds'
+        );
+        // Validate nesting depth against the field dimensions (first row is
+        // representative; the converter enforces per-row shape after this).
+        let curr: any = values[0];
+        for (let i = 1; i < this.dimensions.length; ++i) {
+            if (!Array.isArray(curr)) {
+                error('expecting array');
+            }
+            curr = curr[0];
+        }
+        let values1D = values.flat(this.dimensions.length - 1);
+
+        let int32Arrays: Int32Array[] = [];
+        for (let val of values1D) {
+            int32Arrays.push(elementToInt32Array(val, this.elementType));
+        }
+
+        let elementLength = int32Arrays[0].length;
+        let totalLength = int32Arrays.length * elementLength;
+        let result = new Int32Array(totalLength);
+        for (let i = 0; i < int32Arrays.length; i++) {
+            result.set(int32Arrays[i], i * elementLength);
+        }
+
+        let offsetBytes = startIndex * elementLength * 4;
+        await Program.getCurrentProgram().runtime!.hostToDevice(this, result, offsetBytes);
     }
 
     async fromArray(values: any) {

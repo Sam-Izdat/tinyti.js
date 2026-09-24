@@ -36,7 +36,15 @@ export declare class Field {
     toArray(): Promise<any[]>;
     static toArrays(fields: Field[]): Promise<any[][]>;
     get(indices: number[]): Promise<any>;
-    fromArray1D(values: number[]): Promise<void>;
+    fromArray1D(values: number[] | Int32Array, offsetBytes?: number): Promise<void>;
+    /**
+     * Row-scoped struct-field write (ilmato #93): converts + uploads a
+     * contiguous run of top-level rows starting at startIndex, instead of
+     * the whole field. Same per-row conversion as fromArray, but only over
+     * the slice — the fix for per-tick full re-uploads of descriptor
+     * buffers where 1–2 rows change. offsetBytes covers the preceding rows.
+     */
+    fromRows(values: any[], startIndex: number): Promise<void>;
     fromArray(values: any): Promise<void>;
     fromArrayScoped(values: any, startIndex?: number | null, endIndex?: number | null): Promise<void>;
     set(indices: number[], value: any): Promise<void>;
