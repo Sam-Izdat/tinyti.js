@@ -65,3 +65,7 @@ Buffer-source texture upload (`Runtime.uploadBufferToTexture`, also exposed as `
 | BC formats (`TextureDataType.bc1/bc2/bc3/bc7`) | Size must be block-rounded (multiple of 4); block-row stride is derived from the format, `origin[2]` selects the array layer on `TextureArray` |
 
 Block-compressed textures admit exactly `COPY_DST | TEXTURE_BINDING` usage — the runtime never requests STORAGE/RENDER_ATTACHMENT/COPY_SRC on compressed formats.
+
+## Device Limits (0.1.12)
+
+`createDevice` requests the adapter maximum for `maxStorageBufferBindingSize`, `maxBufferSize`, and `maxTextureArrayLayers` (the latter new in 0.1.12 — array-pool layers exceed the 256 default on Bistro-class scenes). Requesting the adapter's own maxima is always legal; weaker adapters just report lower limits.
