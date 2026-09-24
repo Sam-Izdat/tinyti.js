@@ -54,3 +54,14 @@ Host→device field upload (`fromArray`, `fromArray1D`) pays two JS-side costs b
 | `field.fromFloat32ArrayAsync(data, offsetBytes?)` | Same staging copy, fire-and-forget (no `onSubmittedWorkDone` await) | Upload pipelines that fence once at the sink (`ti.sync`) instead of per upload |
 
 `fromFloat32ArrayAsync` is safe only for fields the caller never re-writes before the later global sync (it allocates a dedicated staging buffer per call; reusing the field early races the in-flight copy). Both wrap `Runtime.hostToDevice[Async]`.
+
+## Texture Uploads (0.1.11)
+
+Buffer-source texture upload (`Runtime.uploadBufferToTexture`, also exposed as `texture.uploadBytes(...)` on any `TextureBase`) stages host bytes into a pooled, grown-only two-buffer staging ring and issues a 256-aligned `copyBufferToTexture`. No per-call device buffer allocation, so it is safe in per-mip decode/stream storms.
+
+| Call | Use case |
+|---|---|
+| `texture.uploadBytes(bytes, mip, { size, origin, bytesPerRow, rowsPerImage })` | Raw rows into any texture mip |
+| BC formats (`TextureDataType.bc1/bc2/bc3/bc7`) | Size must be block-rounded (multiple of 4); block-row stride is derived from the format, `origin[2]` selects the array layer on `TextureArray` |
+
+Block-compressed textures admit exactly `COPY_DST | TEXTURE_BINDING` usage — the runtime never requests STORAGE/RENDER_ATTACHMENT/COPY_SRC on compressed formats.

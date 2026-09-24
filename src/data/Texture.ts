@@ -60,6 +60,19 @@ export abstract class TextureBase {
     destroyed: boolean = false;
     textureId: number = -1;
     sampleCount: number = 1;
+
+    /**
+     * Upload raw bytes (BC blocks or uncompressed rows) into this texture at
+     * `mipLevel` via the runtime's pooled staging ring (issue #1). BC callers
+     * pass a block-rounded `size`; uncompressed callers pass `bytesPerRow`.
+     */
+    async uploadBytes(
+        hostBytes: Uint8Array,
+        mipLevel: number = 0,
+        opts: { origin?: number[], size?: number[], bytesPerRow?: number, rowsPerImage?: number } = {}
+    ): Promise<void> {
+        await Program.getCurrentProgram().runtime!.uploadBufferToTexture(hostBytes, this, mipLevel, opts);
+    }
 }
 
 export enum WrapMode {

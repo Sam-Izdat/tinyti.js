@@ -32,6 +32,17 @@ export declare abstract class TextureBase {
     destroyed: boolean;
     textureId: number;
     sampleCount: number;
+    /**
+     * Upload raw bytes (BC blocks or uncompressed rows) into this texture at
+     * `mipLevel` via the runtime's pooled staging ring (issue #1). BC callers
+     * pass a block-rounded `size`; uncompressed callers pass `bytesPerRow`.
+     */
+    uploadBytes(hostBytes: Uint8Array, mipLevel?: number, opts?: {
+        origin?: number[];
+        size?: number[];
+        bytesPerRow?: number;
+        rowsPerImage?: number;
+    }): Promise<void>;
 }
 export declare enum WrapMode {
     Repeat = "repeat",

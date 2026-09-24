@@ -47,6 +47,17 @@ declare class Runtime {
     copyImageBitmapToTexture(bitmap: ImageBitmap, texture: GPUTexture): Promise<void>;
     copyImageBitmapsToCubeTexture(bitmaps: ImageBitmap[], texture: GPUTexture): Promise<void>;
     copyTextureToTexture(src: GPUTexture, dest: GPUTexture, dimensions: number[]): Promise<void>;
+    uploadStagingRing: {
+        buffer: GPUBuffer;
+        capacity: number;
+    }[];
+    uploadStagingCursor: number;
+    uploadBufferToTexture(hostBytes: Uint8Array, texture: TextureBase, mipLevel?: number, opts?: {
+        origin?: number[];
+        size?: number[];
+        bytesPerRow?: number;
+        rowsPerImage?: number;
+    }): Promise<void>;
     getGPUShaderModule(code: string): GPUShaderModule;
     getGPUComputePipeline(desc: GPUComputePipelineDescriptor): GPUComputePipeline;
     getGPURenderPipeline(desc: GPURenderPipelineDescriptor): GPURenderPipeline;

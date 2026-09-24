@@ -727,6 +727,85 @@ class Runtime {
         await this.device!.queue.onSubmittedWorkDone();
     }
 
+    /*
+     * Buffer-source texture upload (tinyti issue #1 — BC-direct streaming /
+     * DDS ingestion; also plain uncompressed rows). Stages `hostBytes` into
+     * a pooled, grown-only staging ring (reuse never races: a buffer is
+     * recycled only after the previous submit riding it has completed on
+     * the queue timeline), pads rows to the 256-byte copy alignment, and
+     * issues copyBufferToTexture. No per-call device allocations beyond the
+     * command encoder — safe to call in per-level decode/stream storms.
+     *
+     * BC formats: `size` must be BLOCK-ROUNDED (caller rounds up; a file
+     * level's row stride is ceil(w/4)*blockBytes). `rowsPerImage` defaults
+     * to size[1]/4 block rows; data row stride is derived from the format.
+     * Uncompressed formats: pass `bytesPerRow` (source row stride in bytes).
+     */
+    uploadStagingRing: { buffer: GPUBuffer, capacity: number }[] = [];
+    uploadStagingCursor: number = 0;
+    async uploadBufferToTexture(
+        hostBytes: Uint8Array,
+        texture: TextureBase,
+        mipLevel: number = 0,
+        opts: { origin?: number[], size?: number[], bytesPerRow?: number, rowsPerImage?: number } = {}
+    ) {
+        const target = texture.getGPUTexture();
+        const format = texture.getGPUTextureFormat();
+        const compressed = isBlockCompressedFormat(format);
+        const size = opts.size ?? [
+            Math.max(((target as any).width || 0) >> mipLevel, 1),
+            Math.max(((target as any).height || 0) >> mipLevel, 1),
+        ];
+        assert(size[0] > 0 && size[1] > 0, 'uploadBufferToTexture: need positive size (target reports no dims — pass opts.size)');
+        let dataRow: number; // unpadded source row stride in bytes (block-row for BC)
+        let rowsPerImage: number; // buffer-layout image stride (block rows for BC)
+        if (compressed) {
+            assert(size[0] % 4 === 0 && size[1] % 4 === 0, 'BC copy extent must be block-aligned (multiple of 4; caller rounds up)');
+            const blockBytes = (format.startsWith('bc1-') || format.startsWith('bc4-')) ? 8 : 16;
+            dataRow = opts.bytesPerRow ?? (size[0] / 4) * blockBytes;
+            rowsPerImage = opts.rowsPerImage ?? size[1] / 4;
+        } else {
+            assert(opts.bytesPerRow !== undefined, 'uncompressed uploads must pass opts.bytesPerRow (source row stride in bytes)');
+            dataRow = opts.bytesPerRow!;
+            rowsPerImage = opts.rowsPerImage ?? size[1];
+        }
+        const rows = Math.ceil(hostBytes.byteLength / dataRow);
+        assert(rows * dataRow <= hostBytes.byteLength + dataRow, 'uploadBufferToTexture: hostBytes shorter than one row per row of extent');
+        const paddedRow = Math.ceil(dataRow / 256) * 256;
+        const need = paddedRow * rows;
+        const ring = this.uploadStagingRing;
+        this.uploadStagingCursor = (this.uploadStagingCursor + 1) % 2;
+        let slot = ring[this.uploadStagingCursor];
+        if (!slot) {
+            slot = { buffer: null as any, capacity: 0 };
+            ring[this.uploadStagingCursor] = slot;
+        }
+        if (slot.capacity < need) {
+            if (slot.buffer) slot.buffer.destroy();
+            slot.buffer = this.device!.createBuffer({
+                size: need,
+                usage: GPUBufferUsage.COPY_SRC | GPUBufferUsage.MAP_WRITE,
+            });
+            slot.capacity = need;
+        }
+        await slot.buffer.mapAsync(GPUMapMode.WRITE, 0, need);
+        const map = new Uint8Array(slot.buffer.getMappedRange(0, need));
+        for (let y = 0; y < rows; y++) {
+            const srcStart = y * dataRow;
+            const srcEnd = Math.min(srcStart + dataRow, hostBytes.byteLength);
+            map.set(hostBytes.subarray(srcStart, srcEnd), y * paddedRow);
+        }
+        slot.buffer.unmap();
+        const enc = this.device!.createCommandEncoder();
+        enc.copyBufferToTexture(
+            { buffer: slot.buffer, bytesPerRow: paddedRow, rowsPerImage },
+            { texture: target, mipLevel, origin: (opts.origin ?? [0, 0, 0]) as [number, number, number] },
+            { width: size[0], height: size[1], depthOrArrayLayers: size[2] ?? 1 }
+        );
+        this.device!.queue.submit([enc.finish()]);
+        await this.device!.queue.onSubmittedWorkDone();
+    }
+
     getGPUShaderModule(code: string): GPUShaderModule {
         return this.pipelineCache!.getOrCreateShaderModule(code);
     }
@@ -761,6 +840,10 @@ class Runtime {
         this.globalTmpsBuffer = null;
         this.randStatesBuffer?.destroy();
         this.randStatesBuffer = null;
+        for (const slot of this.uploadStagingRing) {
+            slot.buffer?.destroy();
+        }
+        this.uploadStagingRing.length = 0;
         this.pipelineCache?.destroy();
         this.pipelineCache = null;
         this.device?.destroy();
